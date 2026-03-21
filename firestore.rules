@@ -5,67 +5,111 @@ service cloud.firestore {
 
     // ─── Helper functions ──────────────────────────────────────
 
-    // True if the request comes from an authenticated user.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // True if the caller's UID matches the document path segment.
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // True if the caller has the admin custom claim.
     function isAdmin() {
       return isAuthenticated() && request.auth.token.admin == true;
     }
 
-    // True if the write does NOT attempt to change the "role" field.
     function roleNotChanged() {
       return !("role" in request.resource.data)
         || request.resource.data.role == resource.data.role;
     }
 
+    // ─── Validation helpers ──────────────────────────────────
+
+    function isString(field) {
+      return field is string;
+    }
+
+    function isNumber(field) {
+      return field is number;
+    }
+
+    function isBool(field) {
+      return field is bool;
+    }
+
+    // Validates user document fields on create/update.
+    function validUserData() {
+      let d = request.resource.data;
+      return d.email is string
+        && d.email.size() > 0
+        && d.email.size() <= 320
+        && d.role is string
+        && d.role in ['user', 'admin']
+        && d.plan is string
+        && d.plan in ['free', 'premium']
+        && d.mfaEnabled is bool
+        && d.biometricEnabled is bool;
+    }
+
+    // Validates card document fields.
+    function validCardData() {
+      let d = request.resource.data;
+      return d.retailer is string
+        && d.retailer.size() > 0
+        && d.retailer.size() <= 100
+        && d.balance is number
+        && d.balance >= 0
+        && d.originalBalance is number
+        && d.originalBalance >= 0
+        && d.status is string
+        && d.status in ['active', 'depleted', 'expired', 'archived'];
+    }
+
+    // Validates transaction document fields.
+    function validTransactionData() {
+      let d = request.resource.data;
+      return d.cardId is string
+        && d.retailer is string
+        && d.type is string
+        && d.type in ['purchase', 'refund', 'balance_check', 'adjustment', 'transfer']
+        && d.amount is number
+        && d.balanceAfter is number
+        && d.balanceAfter >= 0;
+    }
+
     // ─── User documents ────────────────────────────────────────
 
     match /users/{userId} {
-      // Users can read their own document; admins can read any user.
       allow read: if isOwner(userId) || isAdmin();
 
-      // Users can create their own document (onUserCreate may also do this).
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) && validUserData();
 
-      // Users can update their own document except the role field.
-      // Admins can update anything.
-      allow update: if (isOwner(userId) && roleNotChanged()) || isAdmin();
+      allow update: if (isOwner(userId) && roleNotChanged() && validUserData())
+        || isAdmin();
 
-      // Only admins can delete user documents.
       allow delete: if isAdmin();
 
       // ── Cards subcollection ──────────────────────────────────
       match /cards/{cardId} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) && validCardData()) || isAdmin();
+        allow update: if (isOwner(userId) && validCardData()) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
       }
 
       // ── Transactions subcollection ───────────────────────────
       match /transactions/{txId} {
-        // Users can read their own transactions and create new ones.
-        // Admins have full access.
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) && validTransactionData()) || isAdmin();
         allow update, delete: if isAdmin();
       }
 
       // ── Notifications subcollection ──────────────────────────
       match /notifications/{notifId} {
-        // Users can read their own notifications.
         allow read: if isOwner(userId) || isAdmin();
 
-        // Users can only update the isRead field on their own notifications.
         allow update: if isOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["isRead"]);
 
-        // Only admins (or Cloud Functions) can create / delete notifications.
         allow create, delete: if isAdmin();
       }
     }
@@ -73,7 +117,6 @@ service cloud.firestore {
     // ─── Admin collection ──────────────────────────────────────
 
     match /admin/{document=**} {
-      // Only admins can read and write anything under /admin.
       allow read, write: if isAdmin();
     }
 

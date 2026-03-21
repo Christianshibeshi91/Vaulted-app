@@ -26,17 +26,19 @@ import '../../presentation/screens/admin/admin_user_detail_screen.dart';
 import '../../presentation/screens/admin/admin_users_screen.dart';
 import '../../presentation/screens/user/activity_screen.dart';
 import '../../presentation/screens/user/card_detail_screen.dart';
+import '../../presentation/screens/user/card_redeem_screen.dart';
 import '../../presentation/screens/user/cards_list_screen.dart';
 import '../../presentation/screens/user/dashboard_screen.dart';
+import '../../presentation/screens/user/delete_account_screen.dart';
 import '../../presentation/screens/user/edit_profile_screen.dart';
 import '../../presentation/screens/user/notifications_screen.dart';
 import '../../presentation/screens/user/profile_screen.dart';
 import '../../presentation/screens/user/security_settings_screen.dart';
+import '../../presentation/screens/user/support_screen.dart';
+import '../../presentation/screens/user/transaction_detail_screen.dart';
 import '../../presentation/shells/admin_shell.dart';
 import '../../presentation/shells/user_shell.dart';
 import '../../presentation/providers/auth_providers.dart';
-import '../theme/colors.dart';
-import '../theme/typography.dart';
 import 'page_transitions.dart';
 import 'route_names.dart';
 
@@ -194,9 +196,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) =>
                         VaultedPageTransitions.detailTransition(
                       key: state.pageKey,
-                      child: _PlaceholderScreen(
-                        title:
-                            'Redeem ${state.pathParameters['cardId'] ?? ''}',
+                      child: CardRedeemScreen(
+                        cardId: state.pathParameters['cardId'] ?? '',
                       ),
                     ),
                   ),
@@ -219,9 +220,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) =>
                         VaultedPageTransitions.detailTransition(
                       key: state.pageKey,
-                      child: _PlaceholderScreen(
-                        title:
-                            'Transaction ${state.pathParameters['txId'] ?? ''}',
+                      child: TransactionDetailScreen(
+                        txId: state.pathParameters['txId'] ?? '',
                       ),
                     ),
                   ),
@@ -273,7 +273,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) =>
                         VaultedPageTransitions.detailTransition(
                       key: state.pageKey,
-                      child: const _PlaceholderScreen(title: 'Support'),
+                      child: const SupportScreen(),
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'delete-account',
+                    name: 'profile-delete-account',
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: const DeleteAccountScreen(),
                     ),
                   ),
                 ],
@@ -350,32 +359,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-// ── Placeholder screen ────────────────────────────────────────────
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: VaultedColors.bgPrimary,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: VaultedTypography.gold(VaultedTypography.headlineLarge),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Coming soon',
-              style: VaultedTypography.muted(VaultedTypography.bodyMedium),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

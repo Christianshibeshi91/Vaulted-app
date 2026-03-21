@@ -67,9 +67,9 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not pick image')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not pick image')));
       }
     }
   }
@@ -82,13 +82,35 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
     Haptics.mediumTap();
     setState(() => _isSaving = true);
 
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = _nameController.text.trim();
 
+    // Save display name to Firebase Auth (always works for current user)
+    try {
+      if (user != null) {
+        await user.updateDisplayName(displayName);
+      }
+    } catch (_) {
+      // Non-blocking — continue anyway
+    }
+
+    // Upload avatar + save to Firestore in background (best-effort)
+    if (user != null) {
+      _saveProfileInBackground(user, displayName);
+    }
+
+    // Always navigate forward
+    if (mounted) {
+      context.goNamed(RouteNames.onboardingSecurity);
+    }
+  }
+
+  /// Best-effort background save — avatar upload + Firestore write.
+  /// Does not block navigation.
+  Future<void> _saveProfileInBackground(User user, String displayName) async {
+    try {
       String? avatarUrl;
 
-      // Upload avatar if selected
       if (_avatarBytes != null) {
         final ext = _avatarFileName?.split('.').last ?? 'jpg';
         final ref = FirebaseStorage.instance
@@ -100,36 +122,16 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
           SettableMetadata(contentType: 'image/$ext'),
         );
         avatarUrl = await ref.getDownloadURL();
-      }
-
-      final displayName = _nameController.text.trim();
-
-      // Update Firebase Auth profile
-      await user.updateDisplayName(displayName);
-      if (avatarUrl != null) {
         await user.updatePhotoURL(avatarUrl);
       }
 
-      // Save to Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        {
-          'displayName': displayName,
-          if (avatarUrl != null) 'avatarUrl': avatarUrl,
-          'email': user.email ?? '',
-        },
-        SetOptions(merge: true),
-      );
-
-      if (mounted) {
-        context.goNamed(RouteNames.onboardingSecurity);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save profile: $e')),
-        );
-      }
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'displayName': displayName,
+        'avatarUrl': avatarUrl,
+        'email': user.email ?? '',
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Silent — profile data will sync on next login
     }
   }
 
@@ -179,66 +181,73 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
 
               // -- Avatar picker --
               Center(
-                child: GestureDetector(
-                  onTap: _isSaving ? null : _pickAvatar,
-                  child: Stack(
-                    children: [
-                      // Outer glow ring
-                      Container(
-                        width: 112,
-                        height: 112,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: VaultedColors.accentGold.withValues(alpha: 0.2),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: CircleAvatar(
-                            radius: 52,
-                            backgroundColor: VaultedColors.bgInput,
-                            backgroundImage: _avatarBytes != null
-                                ? MemoryImage(_avatarBytes!)
-                                : null,
-                            child: _avatarBytes == null
-                                ? const Icon(
-                                    Icons.person_rounded,
-                                    size: 48,
-                                    color: VaultedColors.textMuted,
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: VaultedColors.accentGold,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: VaultedColors.accentGold.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                spreadRadius: 1,
+                    child: GestureDetector(
+                      onTap: _isSaving ? null : _pickAvatar,
+                      child: Stack(
+                        children: [
+                          // Outer glow ring
+                          Container(
+                            width: 112,
+                            height: 112,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: VaultedColors.accentGold.withValues(
+                                  alpha: 0.2,
+                                ),
+                                width: 1.5,
                               ),
-                            ],
+                            ),
+                            child: Center(
+                              child: CircleAvatar(
+                                radius: 52,
+                                backgroundColor: VaultedColors.bgInput,
+                                backgroundImage: _avatarBytes != null
+                                    ? MemoryImage(_avatarBytes!)
+                                    : null,
+                                child: _avatarBytes == null
+                                    ? const Icon(
+                                        Icons.person_rounded,
+                                        size: 48,
+                                        color: VaultedColors.textMuted,
+                                      )
+                                    : null,
+                              ),
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.camera_alt_rounded,
-                            size: 18,
-                            color: VaultedColors.bgPrimary,
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: VaultedColors.accentGold,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: VaultedColors.accentGold.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 18,
+                                color: VaultedColors.bgPrimary,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(delay: 300.ms, duration: 500.ms).scale(
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 300.ms, duration: 500.ms)
+                  .scale(
                     begin: const Offset(0.8, 0.8),
                     end: const Offset(1, 1),
                     delay: 300.ms,
@@ -326,8 +335,8 @@ class _DotIndicator extends StatelessWidget {
             color: isActive
                 ? VaultedColors.accentGold
                 : isCompleted
-                    ? VaultedColors.accentGold.withValues(alpha: 0.4)
-                    : VaultedColors.bgInput,
+                ? VaultedColors.accentGold.withValues(alpha: 0.4)
+                : VaultedColors.bgInput,
             borderRadius: BorderRadius.circular(4),
           ),
         );

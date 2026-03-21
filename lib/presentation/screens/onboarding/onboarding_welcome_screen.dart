@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/route_names.dart';
@@ -48,17 +47,64 @@ class OnboardingWelcomeScreen extends StatelessWidget {
                 children: [
                   const Spacer(flex: 3),
 
-                  // -- SVG Logo --
-                  SvgPicture.asset(
-                    'assets/images/vaulted_logo.svg',
-                    width: 140,
-                    height: 140,
+                  // -- Vault icon with glow ring --
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: VaultedColors.accentGoldDim,
+                      border: Border.all(
+                        color: VaultedColors.accentGold.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: VaultedColors.accentGold,
+                      size: 36,
+                    ),
                   )
                       .animate()
-                      .fadeIn(duration: 800.ms, curve: Curves.easeOut)
+                      .fadeIn(duration: 600.ms, curve: Curves.easeOut)
+                      .scale(
+                        begin: const Offset(0.5, 0.5),
+                        end: const Offset(1, 1),
+                        duration: 600.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  VaultedSpacing.gapXxl,
+
+                  // -- Animated logo --
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [
+                        VaultedColors.accentGold,
+                        VaultedColors.accentGoldLight,
+                        VaultedColors.accentGold,
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ).createShader(bounds),
+                    child: Text(
+                      'VAULTED',
+                      style: VaultedTypography.displayLarge.copyWith(
+                        color: Colors.white,
+                        fontSize: 42,
+                        letterSpacing: 8,
+                      ),
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(
+                        delay: 200.ms,
+                        duration: 800.ms,
+                        curve: Curves.easeOut,
+                      )
                       .scale(
                         begin: const Offset(0.6, 0.6),
                         end: const Offset(1, 1),
+                        delay: 200.ms,
                         duration: 800.ms,
                         curve: Curves.easeOut,
                       ),

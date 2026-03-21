@@ -48,11 +48,24 @@ class WelcomeScreen extends StatelessWidget {
                 children: [
                   const Spacer(flex: 3),
 
-                  // -- SVG Logo --
-                  SvgPicture.asset(
-                    'assets/images/vaulted_logo.svg',
-                    width: 160,
-                    height: 160,
+                  // -- Logo with shimmer --
+                  ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [
+                        VaultedColors.accentGold,
+                        VaultedColors.accentGoldLight,
+                        VaultedColors.accentGold,
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ).createShader(bounds),
+                    child: Text(
+                      'VAULTED',
+                      style: VaultedTypography.displayLarge.copyWith(
+                        color: Colors.white,
+                        fontSize: 40,
+                        letterSpacing: 8,
+                      ),
+                    ),
                   )
                       .animate()
                       .fadeIn(duration: 800.ms, curve: Curves.easeOut)
@@ -66,6 +79,33 @@ class WelcomeScreen extends StatelessWidget {
                       .shimmer(
                         duration: 2400.ms,
                         color: VaultedColors.accentGoldLight.withValues(alpha: 0.3),
+                      ),
+
+                  VaultedSpacing.gapSm,
+
+                  // -- Gold accent line under logo --
+                  Container(
+                    width: 48,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          VaultedColors.accentGold.withValues(alpha: 0.0),
+                          VaultedColors.accentGold,
+                          VaultedColors.accentGold.withValues(alpha: 0.0),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 500.ms, duration: 600.ms)
+                      .scaleX(
+                        begin: 0.0,
+                        end: 1.0,
+                        delay: 500.ms,
+                        duration: 600.ms,
+                        curve: Curves.easeOut,
                       ),
 
                   VaultedSpacing.gapLg,

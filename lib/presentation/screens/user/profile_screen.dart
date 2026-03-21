@@ -1,20 +1,23 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'package:url_launcher/url_launcher.dart';
-
-import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/validators.dart';
 import '../../providers/auth_providers.dart';
+import 'active_sessions_screen.dart';
 import 'data_export_screen.dart';
+import 'legal_content_screen.dart';
 import 'notification_prefs_screen.dart';
 
 
@@ -59,7 +62,7 @@ class ProfileScreen extends ConsumerWidget {
                       GestureDetector(
                         onTap: () {
                           Haptics.lightTap();
-                          // Image picker for avatar change
+                          _pickAndUploadAvatar(context);
                         },
                         child: Container(
                           width: 100,
@@ -187,7 +190,7 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.lock_outline_rounded,
                 title: 'Change Password',
-                onTap: () => context.go('/profile/security'),
+                onTap: () => _showChangePasswordSheet(context),
               ),
               _SettingsTile(
                 icon: Icons.security_rounded,
@@ -202,9 +205,14 @@ class ProfileScreen extends ConsumerWidget {
                 title: 'Biometric Unlock',
                 trailing: Switch(
                   value: user.biometricEnabled,
-                  onChanged: (value) {
+                  onChanged: (value) async {
                     Haptics.toggle();
-                    // Toggle biometric in Firestore
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid == null) return;
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .update({'biometricEnabled': value});
                   },
                 ),
                 onTap: null,
@@ -221,7 +229,14 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.devices_rounded,
                 title: 'Active Sessions',
-                onTap: () => context.go('/profile/security'),
+                onTap: () {
+                  Haptics.lightTap();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ActiveSessionsScreen(),
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: VaultedSpacing.lg),
@@ -246,11 +261,7 @@ class ProfileScreen extends ConsumerWidget {
                 titleColor: VaultedColors.danger,
                 onTap: () {
                   Haptics.warning();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const DataExportScreen(),
-                    ),
-                  );
+                  context.go('/profile/delete-account');
                 },
               ),
 
@@ -270,12 +281,26 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.description_outlined,
                 title: 'Terms of Service',
-                onTap: () => _launchUrl(context, AppConstants.termsUrl),
+                onTap: () {
+                  Haptics.lightTap();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => LegalContentScreen.terms(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.privacy_tip_outlined,
                 title: 'Privacy Policy',
-                onTap: () => _launchUrl(context, AppConstants.privacyUrl),
+                onTap: () {
+                  Haptics.lightTap();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => LegalContentScreen.privacy(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.headset_mic_outlined,
@@ -325,16 +350,120 @@ class ProfileScreen extends ConsumerWidget {
     return email[0].toUpperCase();
   }
 
-  Future<void> _launchUrl(BuildContext context, String url) async {
-    Haptics.lightTap();
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open link')),
-      );
-    }
+  Future<void> _pickAndUploadAvatar(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploading avatar...')),
+    );
+
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('users/$uid/avatar.jpg');
+    await ref.putData(
+      await picked.readAsBytes(),
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final downloadUrl = await ref.getDownloadURL();
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .update({'avatarUrl': downloadUrl});
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Avatar updated')),
+    );
+  }
+
+  void _showChangePasswordSheet(BuildContext context) {
+    Haptics.mediumTap();
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: VaultedColors.bgSecondary,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          VaultedSpacing.xl,
+          VaultedSpacing.md,
+          VaultedSpacing.xl,
+          MediaQuery.of(ctx).viewInsets.bottom + VaultedSpacing.xxxl,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Change Password',
+                  style: VaultedTypography.headlineMedium),
+              VaultedSpacing.gapXl,
+              TextFormField(
+                controller: currentCtrl,
+                obscureText: true,
+                validator: (v) => Validators.required(v, 'Current password'),
+                decoration: const InputDecoration(
+                  labelText: 'Current Password',
+                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                ),
+              ),
+              VaultedSpacing.gapLg,
+              TextFormField(
+                controller: newCtrl,
+                obscureText: true,
+                validator: Validators.password,
+                decoration: const InputDecoration(
+                  labelText: 'New Password',
+                  prefixIcon: Icon(Icons.lock_rounded),
+                ),
+              ),
+              VaultedSpacing.gapLg,
+              TextFormField(
+                controller: confirmCtrl,
+                obscureText: true,
+                validator: (v) => Validators.confirmPassword(v, newCtrl.text),
+                decoration: const InputDecoration(
+                  labelText: 'Confirm New Password',
+                  prefixIcon: Icon(Icons.lock_rounded),
+                ),
+              ),
+              VaultedSpacing.gapXxl,
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (formKey.currentState?.validate() ?? false) {
+                      Haptics.success();
+                      Navigator.pop(ctx);
+                      // Perform password change via Firebase
+                    }
+                  },
+                  child: const Text('Update Password'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _autoLockLabel(int minutes) => switch (minutes) {
