@@ -103,7 +103,16 @@ class _QuickAction extends StatelessWidget {
               decoration: BoxDecoration(
                 color: VaultedColors.bgCard,
                 shape: BoxShape.circle,
-                border: Border.all(color: VaultedColors.border),
+                border: Border.all(
+                  color: VaultedColors.accentGold.withValues(alpha: 0.15),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: VaultedColors.accentGold.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    spreadRadius: 0,
+                  ),
+                ],
               ),
               child: Icon(
                 icon,

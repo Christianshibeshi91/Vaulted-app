@@ -185,14 +185,26 @@ class _SecurityOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
       padding: VaultedSpacing.insetsLg,
       decoration: BoxDecoration(
         color: VaultedColors.bgCard,
         borderRadius: VaultedRadii.brCard,
         border: Border.all(
           color: value ? VaultedColors.accentGold : VaultedColors.border,
+          width: value ? 1.5 : 1.0,
         ),
+        boxShadow: value
+            ? [
+                BoxShadow(
+                  color: VaultedColors.accentGold.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: [
@@ -246,6 +258,7 @@ class _DotIndicator extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
         final isActive = i == current;
+        final isCompleted = i < current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
@@ -253,7 +266,11 @@ class _DotIndicator extends StatelessWidget {
           height: 8,
           margin: EdgeInsets.only(right: i < total - 1 ? VaultedSpacing.sm : 0),
           decoration: BoxDecoration(
-            color: isActive ? VaultedColors.accentGold : VaultedColors.bgInput,
+            color: isActive
+                ? VaultedColors.accentGold
+                : isCompleted
+                    ? VaultedColors.accentGold.withValues(alpha: 0.4)
+                    : VaultedColors.bgInput,
             borderRadius: BorderRadius.circular(4),
           ),
         );

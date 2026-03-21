@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Vaulted Logo — Stacked Cards Concept -->
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#07070B"/>
+
+  <!-- Stacked card shapes converging upward -->
+  <!-- Bottom card (widest, most transparent) -->
+  <rect x="196" y="228" width="120" height="76" rx="8" fill="none" stroke="#C9A55A" stroke-width="1.8" opacity="0.25"/>
+
+  <!-- Middle card -->
+  <rect x="212" y="196" width="88" height="76" rx="8" fill="none" stroke="#C9A55A" stroke-width="1.8" opacity="0.5"/>
+
+  <!-- Top card (narrowest, full opacity) -->
+  <rect x="228" y="164" width="56" height="76" rx="8" fill="none" stroke="#C9A55A" stroke-width="2.2" opacity="1"/>
+
+  <!-- Gold diamond accent at apex -->
+  <polygon points="256,138 268,152 256,166 244,152" fill="#C9A55A"/>
+
+  <!-- Wordmark -->
+  <text x="256" y="370" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="400" letter-spacing="4" fill="#C9A55A">Vaulted</text>
+
+  <!-- Tagline -->
+  <text x="256" y="404" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" letter-spacing="5" fill="#5A5668">DIGITAL GIFT CARD WALLET</text>
+</svg>

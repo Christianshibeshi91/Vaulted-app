@@ -1,29 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../core/utils/haptics.dart';
+import '../providers/notification_providers.dart';
 
 /// Bottom-navigation shell wrapping the five user-facing tabs.
 ///
 /// Uses [StatefulNavigationShell] from go_router to preserve
 /// each branch's navigation stack independently.
-class UserShell extends StatelessWidget {
+class UserShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const UserShell({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadCountProvider);
+
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
       body: navigationShell,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: VaultedColors.bgSecondary,
-          border: Border(
+          border: const Border(
             top: BorderSide(color: VaultedColors.border, width: 1),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
+          ],
         ),
         child: SafeArea(
           child: SizedBox(
@@ -58,7 +70,7 @@ class UserShell extends StatelessWidget {
                   label: 'Alerts',
                   isActive: navigationShell.currentIndex == 3,
                   onTap: () => _onTap(3),
-                  badgeCount: 3, // TODO: wire to real unread count
+                  badgeCount: unreadCount,
                 ),
                 _NavItem(
                   icon: Icons.person_outline,
@@ -76,6 +88,9 @@ class UserShell extends StatelessWidget {
   }
 
   void _onTap(int index) {
+    if (index != navigationShell.currentIndex) {
+      Haptics.selection();
+    }
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -110,16 +125,42 @@ class _NavItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 64,
+        height: 64,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Animated gold indicator bar above icon
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              width: isActive ? 16 : 0,
+              height: 2.5,
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: VaultedColors.accentGold,
+                borderRadius: BorderRadius.circular(1.5),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: VaultedColors.accentGold.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(
-                  isActive ? activeIcon : icon,
-                  color: color,
-                  size: 24,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    isActive ? activeIcon : icon,
+                    key: ValueKey(isActive),
+                    color: color,
+                    size: 22,
+                  ),
                 ),
                 if (badgeCount > 0)
                   Positioned(
@@ -147,10 +188,14 @@ class _NavItem extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: VaultedTypography.labelMicro.copyWith(color: color),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: VaultedTypography.labelMicro.copyWith(
+                color: color,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+              ),
+              child: Text(label),
             ),
           ],
         ),

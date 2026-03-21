@@ -27,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _rememberMe = false;
   bool _isLoading = false;
   bool _showShake = false;
 
@@ -269,50 +268,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
         VaultedSpacing.gapLg,
 
-        // Remember me + Forgot password
-        Row(
-          children: [
-            SizedBox(
-              height: 44,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Switch(
-                      value: _rememberMe,
-                      onChanged: (v) {
-                        Haptics.toggle();
-                        setState(() => _rememberMe = v);
-                      },
-                    ),
-                  ),
-                  VaultedSpacing.gapHSm,
-                  Text(
-                    'Remember me',
-                    style: VaultedTypography.bodyMedium,
-                  ),
-                ],
+        // Forgot password
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              Haptics.lightTap();
+              context.goNamed(RouteNames.authForgotPassword);
+            },
+            style: TextButton.styleFrom(
+              minimumSize: const Size(44, 44),
+            ),
+            child: Text(
+              'Forgot Password?',
+              style: VaultedTypography.bodyMedium.copyWith(
+                color: VaultedColors.accentGold,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const Spacer(),
-            TextButton(
-              onPressed: () {
-                Haptics.lightTap();
-                context.goNamed(RouteNames.authForgotPassword);
-              },
-              style: TextButton.styleFrom(
-                minimumSize: const Size(44, 44),
-              ),
-              child: Text(
-                'Forgot Password?',
-                style: VaultedTypography.bodyMedium.copyWith(
-                  color: VaultedColors.accentGold,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
 
         VaultedSpacing.gapXxl,

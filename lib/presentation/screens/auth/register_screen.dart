@@ -83,7 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       Haptics.success();
       if (mounted) {
-        context.goNamed(RouteNames.authVerifyEmail);
+        context.goNamed(RouteNames.onboarding);
       }
     } on FirebaseAuthException catch (_) {
       Haptics.error();

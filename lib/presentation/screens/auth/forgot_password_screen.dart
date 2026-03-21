@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -58,19 +59,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Replace with FirebaseAuth.sendPasswordResetEmail
-      await Future<void>.delayed(const Duration(seconds: 2));
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
+      );
 
       Haptics.success();
       setState(() => _emailSent = true);
       _startResendCooldown();
-    } catch (e) {
-      Haptics.error();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send reset link: $e')),
-        );
-      }
+    } catch (_) {
+      // Always show success to prevent email enumeration.
+      Haptics.success();
+      setState(() => _emailSent = true);
+      _startResendCooldown();
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -83,9 +83,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Replace with FirebaseAuth.sendPasswordResetEmail
-      await Future<void>.delayed(const Duration(seconds: 1));
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
+      );
+    } catch (_) {
+      // Silently swallow -- always show success to prevent enumeration.
+    }
 
+    try {
       Haptics.success();
       _startResendCooldown();
       if (mounted) {

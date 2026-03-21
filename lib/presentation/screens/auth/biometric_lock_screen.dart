@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/route_names.dart';
@@ -74,13 +75,11 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
             children: [
               const Spacer(flex: 3),
 
-              // -- Logo --
-              Text(
-                'VAULTED',
-                style: VaultedTypography.displayLarge.copyWith(
-                  color: VaultedColors.accentGold,
-                  letterSpacing: 6,
-                ),
+              // -- SVG Logo --
+              SvgPicture.asset(
+                'assets/images/vaulted_logo.svg',
+                width: 120,
+                height: 120,
               ).animate().fadeIn(duration: 600.ms),
 
               const Spacer(flex: 2),

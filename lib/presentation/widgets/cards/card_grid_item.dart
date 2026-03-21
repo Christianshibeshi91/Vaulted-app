@@ -42,83 +42,107 @@ class CardGridItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: VaultedSpacing.cardInner,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: VaultedColors.bgCard,
           borderRadius: VaultedRadii.brCard,
           border: Border.all(color: VaultedColors.border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // Retailer circle + status badge
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _retailerColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
+            // Subtle retailer-colored accent stripe at top
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _retailerColor.withValues(alpha: 0.5),
+                      _retailerColor.withValues(alpha: 0.0),
+                    ],
                   ),
-                  child: Center(
-                    child: Text(
-                      card.retailer.isNotEmpty
-                          ? card.retailer[0].toUpperCase()
-                          : '?',
-                      style: VaultedTypography.headlineMedium.copyWith(
-                        color: _retailerColor,
+                ),
+              ),
+            ),
+            Padding(
+              padding: VaultedSpacing.cardInner,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Retailer circle + status badge
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: _retailerColor.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            card.retailer.isNotEmpty
+                                ? card.retailer[0].toUpperCase()
+                                : '?',
+                            style: VaultedTypography.headlineMedium.copyWith(
+                              color: _retailerColor,
+                            ),
+                          ),
+                        ),
                       ),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _statusColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  VaultedSpacing.gapMd,
+
+                  // Retailer name
+                  Text(
+                    card.retailer,
+                    style: VaultedTypography.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  VaultedSpacing.gapXs,
+
+                  // Balance
+                  Text(
+                    Formatters.currency(card.balance),
+                    style: VaultedTypography.monoMedium.copyWith(
+                      color: VaultedColors.accentGold,
                     ),
                   ),
-                ),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _statusColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
-            ),
-            VaultedSpacing.gapMd,
 
-            // Retailer name
-            Text(
-              card.retailer,
-              style: VaultedTypography.bodyLarge.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            VaultedSpacing.gapXs,
+                  const Spacer(),
 
-            // Balance
-            Text(
-              Formatters.currency(card.balance),
-              style: VaultedTypography.monoMedium.copyWith(
-                color: VaultedColors.accentGold,
+                  // Expiration or status label
+                  if (card.expirationDate != null)
+                    Text(
+                      'Exp ${Formatters.dateShort(card.expirationDate!)}',
+                      style: VaultedTypography.labelSmall,
+                    )
+                  else
+                    Text(
+                      CardStatus.label(card.status),
+                      style: VaultedTypography.labelSmall.copyWith(
+                        color: _statusColor,
+                      ),
+                    ),
+                ],
               ),
             ),
-
-            const Spacer(),
-
-            // Expiration or status label
-            if (card.expirationDate != null)
-              Text(
-                'Exp ${Formatters.dateShort(card.expirationDate!)}',
-                style: VaultedTypography.labelSmall,
-              )
-            else
-              Text(
-                CardStatus.label(card.status),
-                style: VaultedTypography.labelSmall.copyWith(
-                  color: _statusColor,
-                ),
-              ),
           ],
         ),
       ),

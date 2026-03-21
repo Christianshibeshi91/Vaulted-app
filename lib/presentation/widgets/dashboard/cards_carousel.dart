@@ -79,54 +79,78 @@ class _CarouselCard extends StatelessWidget {
       child: Container(
         width: 200,
         margin: const EdgeInsets.only(right: VaultedSpacing.md),
-        padding: VaultedSpacing.cardInner,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: VaultedColors.bgCard,
           borderRadius: VaultedRadii.brCard,
           border: Border.all(color: VaultedColors.border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: _retailerColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      card.retailer.isNotEmpty
-                          ? card.retailer[0].toUpperCase()
-                          : '?',
-                      style: VaultedTypography.bodyLarge.copyWith(
-                        color: _retailerColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+            // Subtle retailer-colored accent stripe at top
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _retailerColor.withValues(alpha: 0.6),
+                      _retailerColor.withValues(alpha: 0.0),
+                    ],
                   ),
                 ),
-                VaultedSpacing.gapHSm,
-                Expanded(
-                  child: Text(
-                    card.retailer,
-                    style: VaultedTypography.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+              ),
             ),
-            Text(
-              Formatters.currency(card.balance),
-              style: VaultedTypography.monoLarge.copyWith(
-                color: VaultedColors.accentGold,
+            Padding(
+              padding: VaultedSpacing.cardInner,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: _retailerColor.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            card.retailer.isNotEmpty
+                                ? card.retailer[0].toUpperCase()
+                                : '?',
+                            style: VaultedTypography.bodyLarge.copyWith(
+                              color: _retailerColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      VaultedSpacing.gapHSm,
+                      Expanded(
+                        child: Text(
+                          card.retailer,
+                          style: VaultedTypography.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    Formatters.currency(card.balance),
+                    style: VaultedTypography.monoLarge.copyWith(
+                      color: VaultedColors.accentGold,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

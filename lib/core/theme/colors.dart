@@ -47,3 +47,51 @@ abstract final class VaultedColors {
   /// Shimmer highlight streak.
   static const shimmerHighlight = Color(0xFF1E1E2C);
 }
+
+/// Light-mode palette for Vaulted.
+///
+/// Warm cream tones paired with the same gold accent to retain the
+/// luxury feel without the sterile-white look of typical light modes.
+abstract final class VaultedColorsLight {
+  // ── Backgrounds ──────────────────────────────────────────────
+  static const bgPrimary = Color(0xFFFAFAF7);
+  static const bgSecondary = Color(0xFFF5F4F0);
+  static const bgCard = Color(0xFFFFFFFF);
+  static const bgCardPressed = Color(0xFFF0EFE9);
+  static const bgInput = Color(0xFFF0EFE9);
+
+  // ── Accent ───────────────────────────────────────────────────
+  static const accentGold = Color(0xFFB8943D);
+  static const accentGoldLight = Color(0xFFD4B05A);
+  static const accentGoldDim = Color(0x1FB8943D); // 12 % opacity
+
+  // ── Text ─────────────────────────────────────────────────────
+  static const textPrimary = Color(0xFF1A1A20);
+  static const textSecondary = Color(0xFF6B6A72);
+  static const textMuted = Color(0xFF9E9DA5);
+
+  // ── Borders ──────────────────────────────────────────────────
+  static const border = Color(0x26B8943D); // gold @ 15 % opacity
+  static const borderStrong = Color(0x40B8943D); // gold @ 25 % opacity
+
+  // ── Semantic ─────────────────────────────────────────────────
+  static const success = Color(0xFF2E9E5A);
+  static const warning = Color(0xFFD4960A);
+  static const danger = Color(0xFFDC4444);
+  static const info = Color(0xFF3B82F6);
+
+  // ── Overlay ──────────────────────────────────────────────────
+  static const overlay = Color(0x33000000);
+
+  // ── Derived helpers ──────────────────────────────────────────
+
+  /// Gold at a custom opacity (0.0 - 1.0).
+  static Color goldWithOpacity(double opacity) =>
+      accentGold.withValues(alpha: opacity);
+
+  /// Shimmer base on light cards.
+  static const shimmerBase = Color(0xFFF0EFE9);
+
+  /// Shimmer highlight streak.
+  static const shimmerHighlight = Color(0xFFFAFAF7);
+}

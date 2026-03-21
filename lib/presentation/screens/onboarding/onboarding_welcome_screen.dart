@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/route_names.dart';
@@ -16,83 +17,109 @@ class OnboardingWelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
-      body: SafeArea(
-        child: Padding(
-          padding: VaultedSpacing.screenH,
-          child: Column(
-            children: [
-              const Spacer(flex: 3),
-
-              // -- Animated logo --
-              Text(
-                'VAULTED',
-                style: VaultedTypography.displayLarge.copyWith(
-                  color: VaultedColors.accentGold,
-                  fontSize: 42,
-                  letterSpacing: 8,
+      body: Stack(
+        children: [
+          // -- Background radial glow --
+          Positioned(
+            top: -60,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 420,
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.9,
+                  colors: [
+                    VaultedColors.accentGold.withValues(alpha: 0.07),
+                    VaultedColors.bgPrimary.withValues(alpha: 0.0),
+                  ],
                 ),
-              )
-                  .animate()
-                  .fadeIn(duration: 800.ms, curve: Curves.easeOut)
-                  .scale(
-                    begin: const Offset(0.6, 0.6),
-                    end: const Offset(1, 1),
-                    duration: 800.ms,
-                    curve: Curves.easeOut,
-                  ),
-
-              VaultedSpacing.gapXxl,
-
-              // -- Tagline --
-              Text(
-                'Welcome to Vaulted',
-                style: VaultedTypography.headlineLarge.copyWith(
-                  color: VaultedColors.textPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ).animate().fadeIn(delay: 400.ms, duration: 600.ms),
-
-              VaultedSpacing.gapMd,
-
-              Text(
-                'The safest place for your gift cards.\nOrganize, track, and redeem\u2014all in one place.',
-                textAlign: TextAlign.center,
-                style: VaultedTypography.bodyLarge.copyWith(
-                  color: VaultedColors.textSecondary,
-                  height: 1.6,
-                ),
-              ).animate().fadeIn(delay: 600.ms, duration: 600.ms),
-
-              const Spacer(flex: 2),
-
-              // -- Dot indicator (step 1 of 4) --
-              _DotIndicator(current: 0, total: 4),
-
-              VaultedSpacing.gapXxl,
-
-              // -- Get Started --
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Haptics.mediumTap();
-                    context.goNamed(RouteNames.onboardingProfile);
-                  },
-                  child: const Text('Get Started'),
-                ),
-              ).animate().fadeIn(delay: 800.ms, duration: 500.ms).slideY(
-                    begin: 0.15,
-                    end: 0,
-                    delay: 800.ms,
-                    duration: 500.ms,
-                    curve: Curves.easeOut,
-                  ),
-
-              VaultedSpacing.gapXxl,
-            ],
+              ),
+            )
+                .animate()
+                .fadeIn(duration: 1200.ms, curve: Curves.easeOut),
           ),
-        ),
+
+          SafeArea(
+            child: Padding(
+              padding: VaultedSpacing.screenH,
+              child: Column(
+                children: [
+                  const Spacer(flex: 3),
+
+                  // -- SVG Logo --
+                  SvgPicture.asset(
+                    'assets/images/vaulted_logo.svg',
+                    width: 140,
+                    height: 140,
+                  )
+                      .animate()
+                      .fadeIn(duration: 800.ms, curve: Curves.easeOut)
+                      .scale(
+                        begin: const Offset(0.6, 0.6),
+                        end: const Offset(1, 1),
+                        duration: 800.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  VaultedSpacing.gapXxl,
+
+                  // -- Tagline --
+                  Text(
+                    'Welcome to Vaulted',
+                    style: VaultedTypography.headlineLarge.copyWith(
+                      color: VaultedColors.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ).animate().fadeIn(delay: 500.ms, duration: 600.ms),
+
+                  VaultedSpacing.gapMd,
+
+                  Text(
+                    'The safest place for your gift cards.\nOrganize, track, and redeem\u2014all in one place.',
+                    textAlign: TextAlign.center,
+                    style: VaultedTypography.bodyLarge.copyWith(
+                      color: VaultedColors.textSecondary,
+                      height: 1.6,
+                    ),
+                  ).animate().fadeIn(delay: 700.ms, duration: 600.ms),
+
+                  const Spacer(flex: 2),
+
+                  // -- Dot indicator (step 1 of 4) --
+                  _DotIndicator(current: 0, total: 4),
+
+                  VaultedSpacing.gapXxl,
+
+                  // -- Get Started --
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Haptics.mediumTap();
+                        context.goNamed(RouteNames.onboardingProfile);
+                      },
+                      child: const Text('Get Started'),
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 900.ms, duration: 500.ms)
+                      .slideY(
+                        begin: 0.15,
+                        end: 0,
+                        delay: 900.ms,
+                        duration: 500.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  VaultedSpacing.gapXxl,
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -112,6 +139,7 @@ class _DotIndicator extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
         final isActive = i == current;
+        final isCompleted = i < current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
@@ -119,7 +147,11 @@ class _DotIndicator extends StatelessWidget {
           height: 8,
           margin: EdgeInsets.only(right: i < total - 1 ? VaultedSpacing.sm : 0),
           decoration: BoxDecoration(
-            color: isActive ? VaultedColors.accentGold : VaultedColors.bgInput,
+            color: isActive
+                ? VaultedColors.accentGold
+                : isCompleted
+                    ? VaultedColors.accentGold.withValues(alpha: 0.4)
+                    : VaultedColors.bgInput,
             borderRadius: BorderRadius.circular(4),
           ),
         );

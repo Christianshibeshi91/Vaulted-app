@@ -50,24 +50,61 @@ class _BalanceContent extends StatelessWidget {
       decoration: BoxDecoration(
         color: VaultedColors.bgCard,
         borderRadius: VaultedRadii.brCard,
-        border: Border.all(color: VaultedColors.border),
-        gradient: RadialGradient(
-          center: Alignment.topRight,
-          radius: 1.8,
-          colors: [
-            VaultedColors.accentGold.withValues(alpha: 0.08),
-            VaultedColors.bgCard,
-          ],
+        border: Border.all(
+          color: VaultedColors.accentGold.withValues(alpha: 0.15),
         ),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            VaultedColors.accentGold.withValues(alpha: 0.10),
+            VaultedColors.bgCard,
+            VaultedColors.bgCard,
+            VaultedColors.accentGold.withValues(alpha: 0.04),
+          ],
+          stops: const [0.0, 0.3, 0.7, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: VaultedColors.accentGold.withValues(alpha: 0.06),
+            blurRadius: 24,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 16,
+            spreadRadius: 0,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Total Balance',
-            style: VaultedTypography.secondary(VaultedTypography.bodyMedium),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Balance',
+                style: VaultedTypography.secondary(VaultedTypography.bodyMedium),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: VaultedColors.accentGoldDim,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: VaultedColors.accentGold,
+                  size: 16,
+                ),
+              ),
+            ],
           ),
-          VaultedSpacing.gapSm,
+          VaultedSpacing.gapMd,
           ShaderMask(
             shaderCallback: (bounds) => LinearGradient(
               colors: [
@@ -93,11 +130,24 @@ class _BalanceContent extends StatelessWidget {
                 color: VaultedColors.accentGoldLight.withValues(alpha: 0.3),
               ),
           VaultedSpacing.gapSm,
-          Text(
-            '$activeCount card${activeCount == 1 ? '' : 's'}',
-            style: VaultedTypography.bodyMedium.copyWith(
-              color: VaultedColors.textSecondary,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: VaultedColors.success,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$activeCount active card${activeCount == 1 ? '' : 's'}',
+                style: VaultedTypography.bodyMedium.copyWith(
+                  color: VaultedColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ],
       ),

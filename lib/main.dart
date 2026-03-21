@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,15 +18,11 @@ Future<void> main() async {
     debugPrint('Vaulted: .env file not found, continuing without it.');
   }
 
-  // ── Firebase (safe fallback if google-services.json is absent) ─
-  try {
-    await Firebase.initializeApp();
-    debugPrint('Vaulted: Firebase initialised.');
-  } catch (e) {
-    if (kDebugMode) {
-      debugPrint('Vaulted: Firebase not configured yet -- $e');
-    }
-  }
+  // ── Firebase ─────────────────────────────────────────────────
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  debugPrint('Vaulted: Firebase initialised.');
 
   // ── Lock orientation to portrait ──────────────────────────────
   await SystemChrome.setPreferredOrientations([

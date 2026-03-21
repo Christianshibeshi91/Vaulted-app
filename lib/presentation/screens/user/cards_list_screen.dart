@@ -30,12 +30,26 @@ class CardsListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => AddCardSheet.show(context),
-        backgroundColor: VaultedColors.accentGold,
-        foregroundColor: VaultedColors.bgPrimary,
-        tooltip: 'Add Card',
-        child: const Icon(Icons.add),
+      floatingActionButton: cardsAsync.whenOrNull(
+        data: (cards) => cards.isNotEmpty
+            ? FloatingActionButton(
+                onPressed: () => AddCardSheet.show(context),
+                backgroundColor: VaultedColors.accentGold,
+                foregroundColor: VaultedColors.bgPrimary,
+                elevation: 4,
+                tooltip: 'Add Card',
+                child: const Icon(Icons.add),
+              )
+                .animate()
+                .fadeIn(delay: 300.ms, duration: 400.ms, curve: Curves.easeOut)
+                .scale(
+                  begin: const Offset(0.0, 0.0),
+                  end: const Offset(1.0, 1.0),
+                  delay: 300.ms,
+                  duration: 400.ms,
+                  curve: Curves.easeOut,
+                )
+            : null,
       ),
       body: CustomScrollView(
         slivers: [
@@ -146,7 +160,7 @@ class CardsListScreen extends ConsumerWidget {
           // ── Filter Chips ─────────────────────────────────────
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 44,
+              height: 52,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
@@ -445,46 +459,78 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            hasFilter
-                ? Icons.filter_list_off_rounded
-                : Icons.account_balance_wallet_outlined,
-            color: VaultedColors.accentGold.withValues(alpha: 0.4),
-            size: 64,
-          ),
-          VaultedSpacing.gapLg,
-          Text(
-            hasFilter ? 'No cards match your filter' : 'Your vault is empty',
-            style: VaultedTypography.headlineMedium.copyWith(
-              color: VaultedColors.textSecondary,
-            ),
-          ),
-          VaultedSpacing.gapSm,
-          Text(
-            hasFilter
-                ? 'Try adjusting your search or filters'
-                : 'Add your first gift card to get started',
-            style: VaultedTypography.secondary(VaultedTypography.bodyMedium),
-            textAlign: TextAlign.center,
-          ),
-          if (!hasFilter) ...[
+      child: Padding(
+        padding: VaultedSpacing.insetsXxl,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Floating icon with gold ring
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: VaultedColors.accentGoldDim,
+                border: Border.all(
+                  color: VaultedColors.accentGold.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                hasFilter
+                    ? Icons.filter_list_off_rounded
+                    : Icons.account_balance_wallet_outlined,
+                color: VaultedColors.accentGold.withValues(alpha: 0.6),
+                size: 40,
+              ),
+            )
+                .animate(
+                  onPlay: (controller) => controller.repeat(reverse: true),
+                )
+                .moveY(
+                  begin: 0,
+                  end: -6,
+                  duration: 2000.ms,
+                  curve: Curves.easeInOut,
+                ),
             VaultedSpacing.gapXxl,
-            SizedBox(
-              width: 200,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Haptics.mediumTap();
-                  onAddCard?.call();
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add a Card'),
+            Text(
+              hasFilter ? 'No cards match your filter' : 'Your vault is empty',
+              style: VaultedTypography.headlineMedium.copyWith(
+                color: VaultedColors.textPrimary,
               ),
             ),
+            VaultedSpacing.gapSm,
+            Text(
+              hasFilter
+                  ? 'Try adjusting your search or filters'
+                  : 'Add your first gift card to get started',
+              style: VaultedTypography.secondary(VaultedTypography.bodyMedium),
+              textAlign: TextAlign.center,
+            ),
+            if (!hasFilter) ...[
+              VaultedSpacing.gapXxxl,
+              SizedBox(
+                width: 220,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Haptics.mediumTap();
+                    onAddCard?.call();
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add a Card'),
+                ),
+              )
+                  .animate()
+                  .fadeIn(delay: 300.ms, duration: 400.ms)
+                  .then(delay: 600.ms)
+                  .shimmer(
+                    duration: 1800.ms,
+                    color: VaultedColors.accentGoldLight.withValues(alpha: 0.3),
+                  ),
+            ],
           ],
-        ],
+        ),
       ),
     )
         .animate()

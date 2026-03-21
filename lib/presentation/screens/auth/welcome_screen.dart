@@ -17,130 +17,176 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
-      body: SafeArea(
-        child: Padding(
-          padding: VaultedSpacing.screenH,
-          child: Column(
-            children: [
-              const Spacer(flex: 3),
-
-              // -- Logo --
-              Text(
-                'VAULTED',
-                style: VaultedTypography.displayLarge.copyWith(
-                  color: VaultedColors.accentGold,
-                  letterSpacing: 6,
+      body: Stack(
+        children: [
+          // -- Radial gold glow behind logo area --
+          Positioned(
+            top: -80,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 400,
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.8,
+                  colors: [
+                    VaultedColors.accentGold.withValues(alpha: 0.06),
+                    VaultedColors.bgPrimary.withValues(alpha: 0.0),
+                  ],
                 ),
-              )
-                  .animate()
-                  .fadeIn(duration: 800.ms, curve: Curves.easeOut)
-                  .scale(
-                    begin: const Offset(0.8, 0.8),
-                    end: const Offset(1, 1),
-                    duration: 800.ms,
-                    curve: Curves.easeOut,
-                  ),
-
-              VaultedSpacing.gapMd,
-
-              // -- Tagline --
-              Text(
-                'Your gift cards. One vault.',
-                style: VaultedTypography.bodyLarge.copyWith(
-                  color: VaultedColors.textSecondary,
-                ),
-              ).animate().fadeIn(delay: 400.ms, duration: 600.ms),
-
-              const Spacer(flex: 3),
-
-              // -- Sign In --
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Haptics.mediumTap();
-                    context.goNamed(RouteNames.authLogin);
-                  },
-                  child: const Text('Sign In'),
-                ),
-              ).animate().fadeIn(delay: 600.ms, duration: 500.ms).slideY(
-                    begin: 0.15,
-                    end: 0,
-                    delay: 600.ms,
-                    duration: 500.ms,
-                    curve: Curves.easeOut,
-                  ),
-
-              VaultedSpacing.gapMd,
-
-              // -- Create Account --
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: VaultedColors.accentGold,
-                    side: const BorderSide(color: VaultedColors.accentGold),
-                  ),
-                  onPressed: () {
-                    Haptics.mediumTap();
-                    context.goNamed(RouteNames.authRegister);
-                  },
-                  child: const Text('Create Account'),
-                ),
-              ).animate().fadeIn(delay: 700.ms, duration: 500.ms).slideY(
-                    begin: 0.15,
-                    end: 0,
-                    delay: 700.ms,
-                    duration: 500.ms,
-                    curve: Curves.easeOut,
-                  ),
-
-              VaultedSpacing.gapXxl,
-
-              // -- Divider --
-              _OrDivider().animate().fadeIn(delay: 800.ms, duration: 500.ms),
-
-              VaultedSpacing.gapXxl,
-
-              // -- Social buttons --
-              _SocialButton(
-                label: 'Continue with Google',
-                icon: Icons.g_mobiledata_rounded,
-                onTap: () {
-                  Haptics.mediumTap();
-                  // TODO: Google sign-in
-                },
-              ).animate().fadeIn(delay: 900.ms, duration: 500.ms),
-
-              VaultedSpacing.gapMd,
-
-              _SocialButton(
-                label: 'Continue with Apple',
-                icon: Icons.apple_rounded,
-                onTap: () {
-                  Haptics.mediumTap();
-                  // TODO: Apple sign-in
-                },
-              ).animate().fadeIn(delay: 1000.ms, duration: 500.ms),
-
-              const Spacer(),
-
-              // -- Terms / Privacy --
-              Text(
-                'By continuing, you agree to our Terms of Service\nand Privacy Policy.',
-                textAlign: TextAlign.center,
-                style: VaultedTypography.labelSmall.copyWith(
-                  color: VaultedColors.textMuted,
-                  height: 1.6,
-                ),
-              ).animate().fadeIn(delay: 1100.ms, duration: 500.ms),
-
-              VaultedSpacing.gapLg,
-            ],
+              ),
+            )
+                .animate()
+                .fadeIn(duration: 1200.ms, curve: Curves.easeOut),
           ),
-        ),
+
+          SafeArea(
+            child: Padding(
+              padding: VaultedSpacing.screenH,
+              child: Column(
+                children: [
+                  const Spacer(flex: 3),
+
+                  // -- SVG Logo --
+                  SvgPicture.asset(
+                    'assets/images/vaulted_logo.svg',
+                    width: 160,
+                    height: 160,
+                  )
+                      .animate()
+                      .fadeIn(duration: 800.ms, curve: Curves.easeOut)
+                      .scale(
+                        begin: const Offset(0.8, 0.8),
+                        end: const Offset(1, 1),
+                        duration: 800.ms,
+                        curve: Curves.easeOut,
+                      )
+                      .then(delay: 400.ms)
+                      .shimmer(
+                        duration: 2400.ms,
+                        color: VaultedColors.accentGoldLight.withValues(alpha: 0.3),
+                      ),
+
+                  VaultedSpacing.gapLg,
+
+                  // -- Tagline --
+                  Text(
+                    'Your gift cards. One vault.',
+                    style: VaultedTypography.bodyLarge.copyWith(
+                      color: VaultedColors.textSecondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ).animate().fadeIn(delay: 400.ms, duration: 600.ms),
+
+                  const Spacer(flex: 3),
+
+                  // -- Sign In (gold filled, primary CTA) --
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Haptics.mediumTap();
+                        context.goNamed(RouteNames.authLogin);
+                      },
+                      child: const Text('Sign In'),
+                    ),
+                  ).animate().fadeIn(delay: 600.ms, duration: 500.ms).slideY(
+                        begin: 0.15,
+                        end: 0,
+                        delay: 600.ms,
+                        duration: 500.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  VaultedSpacing.gapMd,
+
+                  // -- Create Account (outlined, secondary CTA) --
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: VaultedColors.accentGold,
+                        side: const BorderSide(
+                          color: VaultedColors.borderStrong,
+                        ),
+                      ),
+                      onPressed: () {
+                        Haptics.mediumTap();
+                        context.goNamed(RouteNames.authRegister);
+                      },
+                      child: const Text('Create Account'),
+                    ),
+                  ).animate().fadeIn(delay: 700.ms, duration: 500.ms).slideY(
+                        begin: 0.15,
+                        end: 0,
+                        delay: 700.ms,
+                        duration: 500.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  VaultedSpacing.gapXxl,
+
+                  // -- Divider --
+                  _OrDivider()
+                      .animate()
+                      .fadeIn(delay: 800.ms, duration: 500.ms),
+
+                  VaultedSpacing.gapXxl,
+
+                  // -- Social buttons --
+                  _SocialButton(
+                    label: 'Continue with Google',
+                    icon: Icons.g_mobiledata_rounded,
+                    onTap: () {
+                      Haptics.mediumTap();
+                      // TODO: Google sign-in
+                    },
+                  ).animate().fadeIn(delay: 900.ms, duration: 500.ms).slideY(
+                        begin: 0.08,
+                        end: 0,
+                        delay: 900.ms,
+                        duration: 500.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  VaultedSpacing.gapMd,
+
+                  _SocialButton(
+                    label: 'Continue with Apple',
+                    icon: Icons.apple_rounded,
+                    onTap: () {
+                      Haptics.mediumTap();
+                      // TODO: Apple sign-in
+                    },
+                  ).animate().fadeIn(delay: 1000.ms, duration: 500.ms).slideY(
+                        begin: 0.08,
+                        end: 0,
+                        delay: 1000.ms,
+                        duration: 500.ms,
+                        curve: Curves.easeOut,
+                      ),
+
+                  const Spacer(),
+
+                  // -- Terms / Privacy --
+                  Text(
+                    'By continuing, you agree to our Terms of Service\nand Privacy Policy.',
+                    textAlign: TextAlign.center,
+                    style: VaultedTypography.labelSmall.copyWith(
+                      color: VaultedColors.textMuted,
+                      height: 1.6,
+                    ),
+                  ).animate().fadeIn(delay: 1100.ms, duration: 500.ms),
+
+                  VaultedSpacing.gapLg,
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

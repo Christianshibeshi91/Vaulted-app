@@ -45,8 +45,15 @@ final isAdminProvider = FutureProvider<bool>((ref) async {
   return idTokenResult.claims?['admin'] == true;
 });
 
+/// Manual override for onboarding completion (synchronous, no Firestore delay).
+final isOnboardedOverrideProvider = StateProvider<bool?>((ref) => null);
+
 /// Whether the current user has completed onboarding.
+/// The override takes precedence so navigation is instant after skip/complete.
 final isOnboardedProvider = Provider<bool>((ref) {
+  final override = ref.watch(isOnboardedOverrideProvider);
+  if (override != null) return override;
+
   final user = ref.watch(currentUserProvider);
   return user.valueOrNull?.onboardingComplete ?? false;
 });

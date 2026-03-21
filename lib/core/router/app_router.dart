@@ -28,6 +28,7 @@ import '../../presentation/screens/user/activity_screen.dart';
 import '../../presentation/screens/user/card_detail_screen.dart';
 import '../../presentation/screens/user/cards_list_screen.dart';
 import '../../presentation/screens/user/dashboard_screen.dart';
+import '../../presentation/screens/user/edit_profile_screen.dart';
 import '../../presentation/screens/user/notifications_screen.dart';
 import '../../presentation/screens/user/profile_screen.dart';
 import '../../presentation/screens/user/security_settings_screen.dart';
@@ -64,8 +65,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return RoutePaths.onboarding;
       }
 
-      // Authenticated, onboarded, but still on an auth screen.
-      if (isLoggedIn && isOnboarded && onAuthRoute) {
+      // Authenticated, onboarded, but still on auth or onboarding screen.
+      if (isLoggedIn && isOnboarded && (onAuthRoute || onOnboarding)) {
         return isAdmin ? RoutePaths.admin : RoutePaths.home;
       }
 
@@ -254,7 +255,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) =>
                         VaultedPageTransitions.detailTransition(
                       key: state.pageKey,
-                      child: const _PlaceholderScreen(title: 'Edit Profile'),
+                      child: const EditProfileScreen(),
                     ),
                   ),
                   GoRoute(

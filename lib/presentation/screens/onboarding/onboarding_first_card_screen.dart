@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/route_names.dart';
@@ -9,18 +12,19 @@ import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/haptics.dart';
 import '../../../core/utils/validators.dart';
+import '../../providers/auth_providers.dart';
 
 /// Onboarding step 4: add first gift card or skip.
-class OnboardingFirstCardScreen extends StatefulWidget {
+class OnboardingFirstCardScreen extends ConsumerStatefulWidget {
   const OnboardingFirstCardScreen({super.key});
 
   @override
-  State<OnboardingFirstCardScreen> createState() =>
+  ConsumerState<OnboardingFirstCardScreen> createState() =>
       _OnboardingFirstCardScreenState();
 }
 
 class _OnboardingFirstCardScreenState
-    extends State<OnboardingFirstCardScreen> {
+    extends ConsumerState<OnboardingFirstCardScreen> {
   final _formKey = GlobalKey<FormState>();
   final _cardNumberController = TextEditingController();
   final _balanceController = TextEditingController();
@@ -71,11 +75,11 @@ class _OnboardingFirstCardScreenState
 
       Haptics.success();
       _finishOnboarding();
-    } catch (e) {
+    } catch (_) {
       Haptics.error();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add card: $e')),
+          const SnackBar(content: Text('Failed to add card. Please try again.')),
         );
       }
     } finally {
@@ -83,9 +87,20 @@ class _OnboardingFirstCardScreenState
     }
   }
 
-  void _finishOnboarding() {
-    // TODO: Set onboardingComplete = true in Firestore
-    context.goNamed(RouteNames.home);
+  Future<void> _finishOnboarding() async {
+    // Set synchronous override so the router redirect sees true immediately.
+    ref.read(isOnboardedOverrideProvider.notifier).state = true;
+
+    // Persist to Firestore in background (best-effort).
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      FirebaseFirestore.instance.collection('users').doc(uid).set(
+        {'onboardingComplete': true, 'email': FirebaseAuth.instance.currentUser?.email ?? ''},
+        SetOptions(merge: true),
+      );
+    }
+
+    if (mounted) context.goNamed(RouteNames.home);
   }
 
   @override
@@ -270,7 +285,7 @@ class _OnboardingFirstCardScreenState
                   child: Text(
                     'Skip for now',
                     style: VaultedTypography.bodyLarge.copyWith(
-                      color: VaultedColors.textMuted,
+                      color: VaultedColors.textSecondary,
                     ),
                   ),
                 ),
@@ -299,6 +314,7 @@ class _DotIndicator extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
         final isActive = i == current;
+        final isCompleted = i < current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
@@ -306,7 +322,11 @@ class _DotIndicator extends StatelessWidget {
           height: 8,
           margin: EdgeInsets.only(right: i < total - 1 ? VaultedSpacing.sm : 0),
           decoration: BoxDecoration(
-            color: isActive ? VaultedColors.accentGold : VaultedColors.bgInput,
+            color: isActive
+                ? VaultedColors.accentGold
+                : isCompleted
+                    ? VaultedColors.accentGold.withValues(alpha: 0.4)
+                    : VaultedColors.bgInput,
             borderRadius: BorderRadius.circular(4),
           ),
         );

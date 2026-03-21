@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
@@ -12,6 +14,9 @@ import '../../../core/theme/typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/haptics.dart';
 import '../../providers/auth_providers.dart';
+import 'data_export_screen.dart';
+import 'notification_prefs_screen.dart';
+
 
 /// Profile screen with grouped settings sections.
 class ProfileScreen extends ConsumerWidget {
@@ -50,36 +55,52 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      // Avatar
+                      // Avatar with glow ring
                       GestureDetector(
                         onTap: () {
                           Haptics.lightTap();
                           // Image picker for avatar change
                         },
                         child: Container(
-                          width: 88,
-                          height: 88,
+                          width: 100,
+                          height: 100,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: VaultedColors.accentGold,
-                              width: 2,
+                              color: VaultedColors.accentGold.withValues(alpha: 0.25),
+                              width: 1.5,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: VaultedColors.accentGold.withValues(alpha: 0.1),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
                           ),
-                          child: CircleAvatar(
-                            radius: 42,
-                            backgroundColor: VaultedColors.bgCard,
-                            backgroundImage: user.avatarUrl != null
-                                ? NetworkImage(user.avatarUrl!)
-                                : null,
-                            child: user.avatarUrl == null
-                                ? Text(
-                                    _initials(user.displayName, user.email),
-                                    style: VaultedTypography.gold(
-                                      VaultedTypography.headlineLarge,
-                                    ),
-                                  )
-                                : null,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: VaultedColors.accentGold,
+                                width: 2,
+                              ),
+                            ),
+                            child: CircleAvatar(
+                              radius: 46,
+                              backgroundColor: VaultedColors.bgCard,
+                              backgroundImage: user.avatarUrl != null
+                                  ? NetworkImage(user.avatarUrl!)
+                                  : null,
+                              child: user.avatarUrl == null
+                                  ? Text(
+                                      _initials(user.displayName, user.email),
+                                      style: VaultedTypography.gold(
+                                        VaultedTypography.headlineLarge,
+                                      ).copyWith(fontSize: 28),
+                                    )
+                                  : null,
+                            ),
                           ),
                         ),
                       ),
@@ -147,17 +168,15 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.go('/profile/edit'),
               ),
               _SettingsTile(
-                icon: Icons.workspace_premium_outlined,
-                title: 'Subscription',
-                trailing: Text(
-                  user.plan.toUpperCase(),
-                  style: VaultedTypography.labelSmall.copyWith(
-                    color: VaultedColors.accentGold,
-                  ),
-                ),
+                icon: Icons.notifications_none_outlined,
+                title: 'Notifications',
                 onTap: () {
                   Haptics.lightTap();
-                  // Navigate to subscription management
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotificationPrefsScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -204,50 +223,6 @@ class ProfileScreen extends ConsumerWidget {
                 title: 'Active Sessions',
                 onTap: () => context.go('/profile/security'),
               ),
-              _SettingsTile(
-                icon: Icons.link_rounded,
-                title: 'Connected Accounts',
-                onTap: () => context.go('/profile/security'),
-              ),
-
-              const SizedBox(height: VaultedSpacing.lg),
-
-              // Preferences section
-              _SectionHeader(title: 'Preferences'),
-              _SettingsTile(
-                icon: Icons.notifications_none_outlined,
-                title: 'Notifications',
-                onTap: () {
-                  Haptics.lightTap();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const _NotificationPrefsInline(),
-                    ),
-                  );
-                },
-              ),
-              _SettingsTile(
-                icon: Icons.attach_money_rounded,
-                title: 'Currency',
-                trailing: Text(
-                  AppConstants.defaultCurrency,
-                  style: VaultedTypography.bodyMedium,
-                ),
-                onTap: () {
-                  Haptics.lightTap();
-                },
-              ),
-              _SettingsTile(
-                icon: Icons.calendar_today_outlined,
-                title: 'Date Format',
-                trailing: Text(
-                  'MMM d, yyyy',
-                  style: VaultedTypography.bodyMedium,
-                ),
-                onTap: () {
-                  Haptics.lightTap();
-                },
-              ),
 
               const SizedBox(height: VaultedSpacing.lg),
 
@@ -260,7 +235,7 @@ class ProfileScreen extends ConsumerWidget {
                   Haptics.lightTap();
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const _DataExportInline(),
+                      builder: (_) => const DataExportScreen(),
                     ),
                   );
                 },
@@ -271,7 +246,11 @@ class ProfileScreen extends ConsumerWidget {
                 titleColor: VaultedColors.danger,
                 onTap: () {
                   Haptics.warning();
-                  // Handled by data_export_screen
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DataExportScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -291,18 +270,12 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.description_outlined,
                 title: 'Terms of Service',
-                onTap: () {
-                  Haptics.lightTap();
-                  // Launch URL
-                },
+                onTap: () => _launchUrl(context, AppConstants.termsUrl),
               ),
               _SettingsTile(
                 icon: Icons.privacy_tip_outlined,
                 title: 'Privacy Policy',
-                onTap: () {
-                  Haptics.lightTap();
-                  // Launch URL
-                },
+                onTap: () => _launchUrl(context, AppConstants.privacyUrl),
               ),
               _SettingsTile(
                 icon: Icons.headset_mic_outlined,
@@ -320,13 +293,17 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 child: SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: VaultedColors.danger.withValues(alpha: 0.15),
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
                       foregroundColor: VaultedColors.danger,
+                      side: BorderSide(
+                        color: VaultedColors.danger.withValues(alpha: 0.3),
+                      ),
+                      backgroundColor: VaultedColors.danger.withValues(alpha: 0.06),
                     ),
                     onPressed: () => _confirmSignOut(context),
-                    child: const Text('Sign Out'),
+                    icon: const Icon(Icons.logout_rounded, size: 18),
+                    label: const Text('Sign Out'),
                   ),
                 ),
               ),
@@ -346,6 +323,18 @@ class ProfileScreen extends ConsumerWidget {
       return parts.first[0].toUpperCase();
     }
     return email[0].toUpperCase();
+  }
+
+  Future<void> _launchUrl(BuildContext context, String url) async {
+    Haptics.lightTap();
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link')),
+      );
+    }
   }
 
   String _autoLockLabel(int minutes) => switch (minutes) {
@@ -420,16 +409,29 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         VaultedSpacing.xl,
-        VaultedSpacing.sm,
+        VaultedSpacing.lg,
         VaultedSpacing.xl,
         VaultedSpacing.sm,
       ),
-      child: Text(
-        title.toUpperCase(),
-        style: VaultedTypography.labelSmall.copyWith(
-          color: VaultedColors.textMuted,
-          letterSpacing: 1.2,
-        ),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 14,
+            decoration: BoxDecoration(
+              color: VaultedColors.accentGold.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(1.5),
+            ),
+          ),
+          const SizedBox(width: VaultedSpacing.sm),
+          Text(
+            title.toUpperCase(),
+            style: VaultedTypography.labelSmall.copyWith(
+              color: VaultedColors.textMuted,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -592,30 +594,3 @@ class _ProfileSkeleton extends StatelessWidget {
   }
 }
 
-// -- Inline stubs for navigation targets (will be replaced by actual screens)
-
-class _NotificationPrefsInline extends StatelessWidget {
-  const _NotificationPrefsInline();
-
-  @override
-  Widget build(BuildContext context) {
-    // Stub -- replaced by notification_prefs_screen.dart
-    return const Scaffold(
-      backgroundColor: VaultedColors.bgPrimary,
-      body: Center(child: Text('Notification Preferences')),
-    );
-  }
-}
-
-class _DataExportInline extends StatelessWidget {
-  const _DataExportInline();
-
-  @override
-  Widget build(BuildContext context) {
-    // Stub -- replaced by data_export_screen.dart
-    return const Scaffold(
-      backgroundColor: VaultedColors.bgPrimary,
-      body: Center(child: Text('Data Export')),
-    );
-  }
-}

@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/router/route_names.dart';
 import '../../../core/theme/colors.dart';
@@ -21,7 +27,20 @@ class OnboardingProfileScreen extends StatefulWidget {
 class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  String? _avatarPath;
+  final _picker = ImagePicker();
+  Uint8List? _avatarBytes;
+  String? _avatarFileName;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill display name from Firebase Auth if already set
+    final user = FirebaseAuth.instance.currentUser;
+    if (user?.displayName != null && user!.displayName!.isNotEmpty) {
+      _nameController.text = user.displayName!;
+    }
+  }
 
   @override
   void dispose() {
@@ -31,19 +50,87 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
 
   Future<void> _pickAvatar() async {
     Haptics.lightTap();
-    // TODO: Use image_picker to pick avatar
-    // final picker = ImagePicker();
-    // final image = await picker.pickImage(source: ImageSource.gallery);
-    // if (image != null) setState(() => _avatarPath = image.path);
+    try {
+      final image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
+      );
+      if (image == null) return;
+      final bytes = await image.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _avatarBytes = bytes;
+          _avatarFileName = image.name;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not pick image')),
+        );
+      }
+    }
   }
 
-  void _handleContinue() {
+  Future<void> _handleContinue() async {
     if (!_formKey.currentState!.validate()) {
       Haptics.error();
       return;
     }
     Haptics.mediumTap();
-    context.goNamed(RouteNames.onboardingSecurity);
+    setState(() => _isSaving = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      String? avatarUrl;
+
+      // Upload avatar if selected
+      if (_avatarBytes != null) {
+        final ext = _avatarFileName?.split('.').last ?? 'jpg';
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('avatars')
+            .child('${user.uid}.$ext');
+        await ref.putData(
+          _avatarBytes!,
+          SettableMetadata(contentType: 'image/$ext'),
+        );
+        avatarUrl = await ref.getDownloadURL();
+      }
+
+      final displayName = _nameController.text.trim();
+
+      // Update Firebase Auth profile
+      await user.updateDisplayName(displayName);
+      if (avatarUrl != null) {
+        await user.updatePhotoURL(avatarUrl);
+      }
+
+      // Save to Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        {
+          'displayName': displayName,
+          if (avatarUrl != null) 'avatarUrl': avatarUrl,
+          'email': user.email ?? '',
+        },
+        SetOptions(merge: true),
+      );
+
+      if (mounted) {
+        context.goNamed(RouteNames.onboardingSecurity);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save profile: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -93,22 +180,36 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
               // -- Avatar picker --
               Center(
                 child: GestureDetector(
-                  onTap: _pickAvatar,
+                  onTap: _isSaving ? null : _pickAvatar,
                   child: Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 52,
-                        backgroundColor: VaultedColors.bgInput,
-                        backgroundImage: _avatarPath != null
-                            ? AssetImage(_avatarPath!)
-                            : null,
-                        child: _avatarPath == null
-                            ? const Icon(
-                                Icons.person_rounded,
-                                size: 48,
-                                color: VaultedColors.textMuted,
-                              )
-                            : null,
+                      // Outer glow ring
+                      Container(
+                        width: 112,
+                        height: 112,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: VaultedColors.accentGold.withValues(alpha: 0.2),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: CircleAvatar(
+                            radius: 52,
+                            backgroundColor: VaultedColors.bgInput,
+                            backgroundImage: _avatarBytes != null
+                                ? MemoryImage(_avatarBytes!)
+                                : null,
+                            child: _avatarBytes == null
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    size: 48,
+                                    color: VaultedColors.textMuted,
+                                  )
+                                : null,
+                          ),
+                        ),
                       ),
                       Positioned(
                         right: 0,
@@ -116,9 +217,16 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                         child: Container(
                           width: 36,
                           height: 36,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: VaultedColors.accentGold,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: VaultedColors.accentGold.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
                           child: const Icon(
                             Icons.camera_alt_rounded,
@@ -145,6 +253,7 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                 key: _formKey,
                 child: TextFormField(
                   controller: _nameController,
+                  enabled: !_isSaving,
                   validator: (v) => Validators.required(v, 'Display name'),
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.done,
@@ -169,8 +278,17 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _handleContinue,
-                  child: const Text('Continue'),
+                  onPressed: _isSaving ? null : _handleContinue,
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: VaultedColors.bgPrimary,
+                          ),
+                        )
+                      : const Text('Continue'),
                 ),
               ),
 
@@ -197,6 +315,7 @@ class _DotIndicator extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
         final isActive = i == current;
+        final isCompleted = i < current;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
@@ -204,7 +323,11 @@ class _DotIndicator extends StatelessWidget {
           height: 8,
           margin: EdgeInsets.only(right: i < total - 1 ? VaultedSpacing.sm : 0),
           decoration: BoxDecoration(
-            color: isActive ? VaultedColors.accentGold : VaultedColors.bgInput,
+            color: isActive
+                ? VaultedColors.accentGold
+                : isCompleted
+                    ? VaultedColors.accentGold.withValues(alpha: 0.4)
+                    : VaultedColors.bgInput,
             borderRadius: BorderRadius.circular(4),
           ),
         );

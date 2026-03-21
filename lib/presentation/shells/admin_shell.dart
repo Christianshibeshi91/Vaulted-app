@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -159,38 +160,7 @@ class _AdminDrawer extends StatelessWidget {
               currentPath: currentPath,
             ),
 
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: VaultedColors.accentGoldDim,
-                    child: Text(
-                      'A',
-                      style: VaultedTypography.gold(
-                        VaultedTypography.labelSmall,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Admin', style: VaultedTypography.bodyMedium),
-                        Text(
-                          'admin@vaulted.app',
-                          style: VaultedTypography.muted(
-                            VaultedTypography.labelMicro,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _AdminFooter(),
           ],
         ),
       ),
@@ -238,6 +208,50 @@ class _DrawerItem extends StatelessWidget {
         Navigator.of(context).pop(); // close drawer
         context.go(path);
       },
+    );
+  }
+}
+
+class _AdminFooter extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? 'Admin';
+    final email = user?.email ?? '';
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: VaultedColors.accentGoldDim,
+            child: Text(
+              initial,
+              style: VaultedTypography.gold(
+                VaultedTypography.labelSmall,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(displayName, style: VaultedTypography.bodyMedium),
+                Text(
+                  email,
+                  style: VaultedTypography.muted(
+                    VaultedTypography.labelMicro,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
