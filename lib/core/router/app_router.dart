@@ -2,6 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../presentation/screens/auth/biometric_lock_screen.dart';
+import '../../presentation/screens/auth/forgot_password_screen.dart';
+import '../../presentation/screens/auth/login_screen.dart';
+import '../../presentation/screens/auth/mfa_challenge_screen.dart';
+import '../../presentation/screens/auth/register_screen.dart';
+import '../../presentation/screens/auth/verify_email_screen.dart';
+import '../../presentation/screens/auth/welcome_screen.dart';
+import '../../presentation/screens/onboarding/onboarding_first_card_screen.dart';
+import '../../presentation/screens/onboarding/onboarding_profile_screen.dart';
+import '../../presentation/screens/onboarding/onboarding_security_screen.dart';
+import '../../presentation/screens/onboarding/onboarding_welcome_screen.dart';
+import '../../presentation/screens/admin/admin_alerts_screen.dart';
+import '../../presentation/screens/admin/admin_audit_log_screen.dart';
+import '../../presentation/screens/admin/admin_cards_screen.dart';
+import '../../presentation/screens/admin/admin_dashboard_screen.dart';
+import '../../presentation/screens/admin/admin_feature_flags_screen.dart';
+import '../../presentation/screens/admin/admin_revenue_screen.dart';
+import '../../presentation/screens/admin/admin_settings_screen.dart';
+import '../../presentation/screens/admin/admin_transactions_screen.dart';
+import '../../presentation/screens/admin/admin_user_detail_screen.dart';
+import '../../presentation/screens/admin/admin_users_screen.dart';
+import '../../presentation/screens/user/activity_screen.dart';
+import '../../presentation/screens/user/card_detail_screen.dart';
+import '../../presentation/screens/user/cards_list_screen.dart';
+import '../../presentation/screens/user/dashboard_screen.dart';
+import '../../presentation/screens/user/notifications_screen.dart';
+import '../../presentation/screens/user/profile_screen.dart';
+import '../../presentation/screens/user/security_settings_screen.dart';
 import '../../presentation/shells/admin_shell.dart';
 import '../../presentation/shells/user_shell.dart';
 import '../theme/colors.dart';
@@ -49,67 +77,59 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.authWelcome,
         name: RouteNames.authWelcome,
-        builder: (_, _) => const _PlaceholderScreen(title: 'Welcome'),
+        builder: (_, _) => const WelcomeScreen(),
       ),
       GoRoute(
         path: RoutePaths.authLogin,
         name: RouteNames.authLogin,
-        builder: (_, _) => const _PlaceholderScreen(title: 'Login'),
+        builder: (_, _) => const LoginScreen(),
       ),
       GoRoute(
         path: RoutePaths.authRegister,
         name: RouteNames.authRegister,
-        builder: (_, _) => const _PlaceholderScreen(title: 'Register'),
+        builder: (_, _) => const RegisterScreen(),
       ),
       GoRoute(
         path: RoutePaths.authForgotPassword,
         name: RouteNames.authForgotPassword,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Forgot Password'),
+        builder: (_, _) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: RoutePaths.authVerifyEmail,
         name: RouteNames.authVerifyEmail,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Verify Email'),
+        builder: (_, _) => const VerifyEmailScreen(),
       ),
       GoRoute(
         path: RoutePaths.authMfaChallenge,
         name: RouteNames.authMfaChallenge,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'MFA Challenge'),
+        builder: (_, _) => const MfaChallengeScreen(),
       ),
       GoRoute(
         path: RoutePaths.authBiometricLock,
         name: RouteNames.authBiometricLock,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Biometric Lock'),
+        builder: (_, _) => const BiometricLockScreen(),
       ),
 
       // ── Onboarding routes ───────────────────────────────────
       GoRoute(
         path: RoutePaths.onboarding,
         name: RouteNames.onboarding,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Onboarding'),
+        builder: (_, _) => const OnboardingWelcomeScreen(),
       ),
       GoRoute(
         path: RoutePaths.onboardingProfile,
         name: RouteNames.onboardingProfile,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Set Up Profile'),
+        builder: (_, _) => const OnboardingProfileScreen(),
       ),
       GoRoute(
         path: RoutePaths.onboardingSecurity,
         name: RouteNames.onboardingSecurity,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'Security Setup'),
+        builder: (_, _) => const OnboardingSecurityScreen(),
       ),
       GoRoute(
         path: RoutePaths.onboardingFirstCard,
         name: RouteNames.onboardingFirstCard,
-        builder: (_, _) =>
-            const _PlaceholderScreen(title: 'First Card'),
+        builder: (_, _) => const OnboardingFirstCardScreen(),
       ),
 
       // ── User shell (bottom nav) ────────────────────────────
@@ -117,14 +137,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _, navigationShell) =>
             UserShell(navigationShell: navigationShell),
         branches: [
-          // Tab 0 - Home
+          // Tab 0 - Home (Dashboard)
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: RoutePaths.home,
                 name: RouteNames.home,
-                builder: (_, _) =>
-                    const _PlaceholderScreen(title: 'Home'),
+                builder: (_, _) => const DashboardScreen(),
               ),
             ],
           ),
@@ -135,15 +154,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.cards,
                 name: RouteNames.cards,
-                builder: (_, _) =>
-                    const _PlaceholderScreen(title: 'Cards'),
+                builder: (_, _) => const CardsListScreen(),
                 routes: [
                   GoRoute(
                     path: RoutePaths.cardDetail,
                     name: RouteNames.cardDetail,
-                    builder: (_, state) => _PlaceholderScreen(
-                      title:
-                          'Card ${state.pathParameters['cardId'] ?? ''}',
+                    builder: (_, state) => CardDetailScreen(
+                      cardId: state.pathParameters['cardId'] ?? '',
                     ),
                   ),
                   GoRoute(
@@ -165,8 +182,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.activity,
                 name: RouteNames.activity,
-                builder: (_, _) =>
-                    const _PlaceholderScreen(title: 'Activity'),
+                builder: (_, _) => const ActivityScreen(),
                 routes: [
                   GoRoute(
                     path: RoutePaths.activityDetail,
@@ -187,8 +203,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.notifications,
                 name: RouteNames.notifications,
-                builder: (_, _) =>
-                    const _PlaceholderScreen(title: 'Notifications'),
+                builder: (_, _) => const NotificationsScreen(),
               ),
             ],
           ),
@@ -199,8 +214,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.profile,
                 name: RouteNames.profile,
-                builder: (_, _) =>
-                    const _PlaceholderScreen(title: 'Profile'),
+                builder: (_, _) => const ProfileScreen(),
                 routes: [
                   GoRoute(
                     path: RoutePaths.profileEdit,
@@ -211,8 +225,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: RoutePaths.profileSecurity,
                     name: RouteNames.profileSecurity,
-                    builder: (_, _) => const _PlaceholderScreen(
-                        title: 'Security Settings'),
+                    builder: (_, _) => const SecuritySettingsScreen(),
                   ),
                   GoRoute(
                     path: RoutePaths.profileSupport,
@@ -234,45 +247,59 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.admin,
             name: RouteNames.admin,
-            builder: (_, _) =>
-                const _PlaceholderScreen(title: 'Admin Dashboard'),
+            builder: (_, _) => const AdminDashboardScreen(),
           ),
           GoRoute(
             path: RoutePaths.adminUsers,
             name: RouteNames.adminUsers,
-            builder: (_, _) =>
-                const _PlaceholderScreen(title: 'User Management'),
+            builder: (_, _) => const AdminUsersScreen(),
           ),
           GoRoute(
             path: RoutePaths.adminUserDetail,
             name: RouteNames.adminUserDetail,
-            builder: (_, state) => _PlaceholderScreen(
-              title: 'User ${state.pathParameters['uid'] ?? ''}',
+            builder: (_, state) => AdminUserDetailScreen(
+              uid: state.pathParameters['uid'] ?? '',
             ),
           ),
           GoRoute(
             path: RoutePaths.adminTransactions,
             name: RouteNames.adminTransactions,
-            builder: (_, _) =>
-                const _PlaceholderScreen(title: 'Transactions'),
+            builder: (_, _) => const AdminTransactionsScreen(),
           ),
           GoRoute(
             path: RoutePaths.adminCards,
             name: RouteNames.adminCards,
-            builder: (_, _) =>
-                const _PlaceholderScreen(title: 'Card Management'),
+            builder: (_, _) => const AdminCardsScreen(),
           ),
           GoRoute(
             path: RoutePaths.adminAnalytics,
             name: RouteNames.adminAnalytics,
-            builder: (_, _) =>
-                const _PlaceholderScreen(title: 'Analytics'),
+            builder: (_, _) => const AdminRevenueScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminRevenue,
+            name: RouteNames.adminRevenue,
+            builder: (_, _) => const AdminRevenueScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminFeatureFlags,
+            name: RouteNames.adminFeatureFlags,
+            builder: (_, _) => const AdminFeatureFlagsScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminAlerts,
+            name: RouteNames.adminAlerts,
+            builder: (_, _) => const AdminAlertsScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminAuditLog,
+            name: RouteNames.adminAuditLog,
+            builder: (_, _) => const AdminAuditLogScreen(),
           ),
           GoRoute(
             path: RoutePaths.adminSettings,
             name: RouteNames.adminSettings,
-            builder: (_, _) =>
-                const _PlaceholderScreen(title: 'Admin Settings'),
+            builder: (_, _) => const AdminSettingsScreen(),
           ),
         ],
       ),

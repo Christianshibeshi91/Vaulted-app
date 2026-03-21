@@ -38,6 +38,10 @@ abstract final class RoutePaths {
   static const adminTransactions = '/admin/transactions';
   static const adminCards = '/admin/cards';
   static const adminAnalytics = '/admin/analytics';
+  static const adminRevenue = '/admin/revenue';
+  static const adminFeatureFlags = '/admin/feature-flags';
+  static const adminAlerts = '/admin/alerts';
+  static const adminAuditLog = '/admin/audit-log';
   static const adminSettings = '/admin/settings';
 }
 
@@ -78,5 +82,9 @@ abstract final class RouteNames {
   static const adminTransactions = 'admin-transactions';
   static const adminCards = 'admin-cards';
   static const adminAnalytics = 'admin-analytics';
+  static const adminRevenue = 'admin-revenue';
+  static const adminFeatureFlags = 'admin-feature-flags';
+  static const adminAlerts = 'admin-alerts';
+  static const adminAuditLog = 'admin-audit-log';
   static const adminSettings = 'admin-settings';
 }

@@ -118,8 +118,26 @@ class _AdminDrawer extends StatelessWidget {
                   ),
                   _DrawerItem(
                     icon: Icons.analytics_outlined,
-                    label: 'Analytics',
-                    path: RoutePaths.adminAnalytics,
+                    label: 'Revenue',
+                    path: RoutePaths.adminRevenue,
+                    currentPath: currentPath,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.flag_outlined,
+                    label: 'Feature Flags',
+                    path: RoutePaths.adminFeatureFlags,
+                    currentPath: currentPath,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Alerts',
+                    path: RoutePaths.adminAlerts,
+                    currentPath: currentPath,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.history,
+                    label: 'Audit Log',
+                    path: RoutePaths.adminAuditLog,
                     currentPath: currentPath,
                   ),
                   _DrawerItem(
