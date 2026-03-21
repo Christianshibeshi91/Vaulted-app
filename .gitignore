@@ -1,0 +1,78 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Firebase — NEVER commit secrets
+lib/firebase_options.dart
+**/google-services.json
+**/GoogleService-Info.plist
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Secrets — fail-secure, never commit
+.env
+.env.*
+!.env.example
+credentials.json
+token.json
+*.pem
+*.p12
+*.key
+*.jks
+*.keystore
+
+# Android signing
+**/android/key.properties
+
+# Functions build output
+functions/node_modules/
+functions/lib/
+
+# Vercel
+.vercel
+
+# Coverage
+*.lcov
