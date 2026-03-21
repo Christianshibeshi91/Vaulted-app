@@ -30,27 +30,25 @@ class CardsListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
-      floatingActionButton: cardsAsync.whenOrNull(
-        data: (cards) => cards.isNotEmpty
-            ? FloatingActionButton(
-                onPressed: () => AddCardSheet.show(context),
-                backgroundColor: VaultedColors.accentGold,
-                foregroundColor: VaultedColors.bgPrimary,
-                elevation: 4,
-                tooltip: 'Add Card',
-                child: const Icon(Icons.add),
+      floatingActionButton: (cardsAsync.valueOrNull ?? []).isNotEmpty
+          ? FloatingActionButton(
+              onPressed: () => AddCardSheet.show(context),
+              backgroundColor: VaultedColors.accentGold,
+              foregroundColor: VaultedColors.bgPrimary,
+              elevation: 4,
+              tooltip: 'Add Card',
+              child: const Icon(Icons.add),
+            )
+              .animate()
+              .fadeIn(delay: 300.ms, duration: 400.ms, curve: Curves.easeOut)
+              .scale(
+                begin: const Offset(0.0, 0.0),
+                end: const Offset(1.0, 1.0),
+                delay: 300.ms,
+                duration: 400.ms,
+                curve: Curves.easeOut,
               )
-                .animate()
-                .fadeIn(delay: 300.ms, duration: 400.ms, curve: Curves.easeOut)
-                .scale(
-                  begin: const Offset(0.0, 0.0),
-                  end: const Offset(1.0, 1.0),
-                  delay: 300.ms,
-                  duration: 400.ms,
-                  curve: Curves.easeOut,
-                )
-            : null,
-      ),
+          : null,
       body: CustomScrollView(
         slivers: [
           // ── App Bar ──────────────────────────────────────────
@@ -160,7 +158,7 @@ class CardsListScreen extends ConsumerWidget {
           // ── Filter Chips ─────────────────────────────────────
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 52,
+              height: 40,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
@@ -400,7 +398,7 @@ class _FilterChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: VaultedSpacing.sm),
         padding: const EdgeInsets.symmetric(
           horizontal: VaultedSpacing.lg,
-          vertical: VaultedSpacing.sm,
+          vertical: VaultedSpacing.xs,
         ),
         decoration: BoxDecoration(
           color: isSelected
