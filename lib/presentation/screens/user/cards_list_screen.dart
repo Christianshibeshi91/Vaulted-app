@@ -157,29 +157,30 @@ class CardsListScreen extends ConsumerWidget {
 
           // ── Filter Chips ─────────────────────────────────────
           SliverToBoxAdapter(
-            child: SizedBox(
-              height: 40,
-              child: ListView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: VaultedSpacing.xl),
+              child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: VaultedSpacing.xl),
-                children: [
-                  _FilterChip(
-                    label: 'All',
-                    isSelected: filter == 'all',
-                    onTap: () => ref
-                        .read(cardsFilterProvider.notifier)
-                        .state = 'all',
-                  ),
-                  for (final status in CardStatus.all)
+                child: Row(
+                  children: [
                     _FilterChip(
-                      label: CardStatus.label(status),
-                      isSelected: filter == status,
+                      label: 'All',
+                      isSelected: filter == 'all',
                       onTap: () => ref
                           .read(cardsFilterProvider.notifier)
-                          .state = status,
+                          .state = 'all',
                     ),
-                ],
+                    for (final status in CardStatus.all)
+                      _FilterChip(
+                        label: CardStatus.label(status),
+                        isSelected: filter == status,
+                        onTap: () => ref
+                            .read(cardsFilterProvider.notifier)
+                            .state = status,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
