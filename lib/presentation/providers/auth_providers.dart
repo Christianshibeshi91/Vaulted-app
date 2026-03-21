@@ -36,10 +36,13 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   );
 });
 
-/// Whether the current user has the `admin` role.
-final isAdminProvider = Provider<bool>((ref) {
-  final user = ref.watch(currentUserProvider);
-  return user.valueOrNull?.role == 'admin';
+/// Whether the current user has the `admin` role (via Firebase custom claims).
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.valueOrNull;
+  if (user == null) return false;
+  final idTokenResult = await user.getIdTokenResult();
+  return idTokenResult.claims?['admin'] == true;
 });
 
 /// Whether the current user has completed onboarding.

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -8,7 +9,9 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
+import '../../../core/utils/clipboard_manager.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/screenshot_prevention.dart';
 
 /// MFA setup flow: QR display, 6-digit verification, recovery codes.
 class MfaSetupScreen extends StatefulWidget {
@@ -18,19 +21,35 @@ class MfaSetupScreen extends StatefulWidget {
   State<MfaSetupScreen> createState() => _MfaSetupScreenState();
 }
 
-class _MfaSetupScreenState extends State<MfaSetupScreen> {
+class _MfaSetupScreenState extends State<MfaSetupScreen>
+    with ScreenshotPreventionMixin {
   final _codeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   _MfaStep _step = _MfaStep.qr;
   bool _isVerifying = false;
 
-  // Placeholder values -- in production these come from the server.
-  final String _totpSecret = 'JBSWY3DPEHPK3PXP';
-  final String _totpUri =
-      'otpauth://totp/Vaulted:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Vaulted';
+  late final String _totpSecret;
+  late final String _totpUri;
 
   late final List<String> _recoveryCodes = _generateRecoveryCodes();
+
+  /// Generate a cryptographically secure Base32 TOTP secret.
+  static String _generateTotpSecret() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    final random = Random.secure();
+    return List.generate(32, (_) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _totpSecret = _generateTotpSecret();
+    final userEmail =
+        FirebaseAuth.instance.currentUser?.email ?? 'user@example.com';
+    _totpUri =
+        'otpauth://totp/Vaulted:$userEmail?secret=$_totpSecret&issuer=Vaulted';
+  }
 
   @override
   void dispose() {
@@ -65,11 +84,13 @@ class _MfaSetupScreenState extends State<MfaSetupScreen> {
 
   void _copyRecoveryCodes() {
     final text = _recoveryCodes.join('\n');
-    Clipboard.setData(ClipboardData(text: text));
-    Haptics.success();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Recovery codes copied')),
+    VaultedClipboard.copyAndClear(
+      context,
+      text,
+      label: 'Recovery codes',
+      timeout: const Duration(seconds: 60),
     );
+    Haptics.success();
   }
 
   void _finishSetup() {

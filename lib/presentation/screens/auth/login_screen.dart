@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -75,10 +76,13 @@ class _LoginScreenState extends State<LoginScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Replace with FirebaseAuth.signInWithEmailAndPassword
-      await Future<void>.delayed(const Duration(seconds: 2));
-
-      // Simulate failure for demonstration; remove in production.
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      Haptics.success();
+      // Navigation is handled by the router's auth-state redirect.
+    } on FirebaseAuthException catch (_) {
       _failedAttempts++;
       if (_failedAttempts >= _maxAttempts) {
         _startLockoutTimer();
@@ -101,6 +105,15 @@ class _LoginScreenState extends State<LoginScreen> {
             if (mounted) setState(() => _showShake = false);
           });
         }
+      }
+    } catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign-in failed. Please try again.'),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

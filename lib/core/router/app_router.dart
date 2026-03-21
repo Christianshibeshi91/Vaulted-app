@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,24 +33,22 @@ import '../../presentation/screens/user/profile_screen.dart';
 import '../../presentation/screens/user/security_settings_screen.dart';
 import '../../presentation/shells/admin_shell.dart';
 import '../../presentation/shells/user_shell.dart';
+import '../../presentation/providers/auth_providers.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
+import 'page_transitions.dart';
 import 'route_names.dart';
-
-// ── Placeholder auth state (replace with real provider later) ───
-final _isLoggedInProvider = StateProvider<bool>((_) => false);
-final _isOnboardedProvider = StateProvider<bool>((_) => false);
-final _isAdminProvider = StateProvider<bool>((_) => false);
 
 /// Top-level router provider consumed by [MaterialApp.router].
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final isLoggedIn = ref.watch(_isLoggedInProvider);
-  final isOnboarded = ref.watch(_isOnboardedProvider);
-  final isAdmin = ref.watch(_isAdminProvider);
+  final authState = ref.watch(authStateProvider);
+  final isLoggedIn = authState.valueOrNull != null;
+  final isOnboarded = ref.watch(isOnboardedProvider);
+  final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
 
   return GoRouter(
     initialLocation: RoutePaths.authWelcome,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode,
     redirect: (context, state) {
       final path = state.uri.path;
       final onAuthRoute = path.startsWith('/auth');
@@ -73,41 +72,62 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null; // no redirect
     },
     routes: [
-      // ── Auth routes ─────────────────────────────────────────
+      // ── Auth routes (fade + slide-up transition) ─────────────
       GoRoute(
         path: RoutePaths.authWelcome,
         name: RouteNames.authWelcome,
-        builder: (_, _) => const WelcomeScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const WelcomeScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.authLogin,
         name: RouteNames.authLogin,
-        builder: (_, _) => const LoginScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const LoginScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.authRegister,
         name: RouteNames.authRegister,
-        builder: (_, _) => const RegisterScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const RegisterScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.authForgotPassword,
         name: RouteNames.authForgotPassword,
-        builder: (_, _) => const ForgotPasswordScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.authVerifyEmail,
         name: RouteNames.authVerifyEmail,
-        builder: (_, _) => const VerifyEmailScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const VerifyEmailScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.authMfaChallenge,
         name: RouteNames.authMfaChallenge,
-        builder: (_, _) => const MfaChallengeScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const MfaChallengeScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.authBiometricLock,
         name: RouteNames.authBiometricLock,
-        builder: (_, _) => const BiometricLockScreen(),
+        pageBuilder: (_, state) => VaultedPageTransitions.authTransition(
+          key: state.pageKey,
+          child: const BiometricLockScreen(),
+        ),
       ),
 
       // ── Onboarding routes ───────────────────────────────────
@@ -159,16 +179,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: RoutePaths.cardDetail,
                     name: RouteNames.cardDetail,
-                    builder: (_, state) => CardDetailScreen(
-                      cardId: state.pathParameters['cardId'] ?? '',
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: CardDetailScreen(
+                        cardId: state.pathParameters['cardId'] ?? '',
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: RoutePaths.cardRedeem,
                     name: RouteNames.cardRedeem,
-                    builder: (_, state) => _PlaceholderScreen(
-                      title:
-                          'Redeem ${state.pathParameters['cardId'] ?? ''}',
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: _PlaceholderScreen(
+                        title:
+                            'Redeem ${state.pathParameters['cardId'] ?? ''}',
+                      ),
                     ),
                   ),
                 ],
@@ -187,9 +215,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: RoutePaths.activityDetail,
                     name: RouteNames.activityDetail,
-                    builder: (_, state) => _PlaceholderScreen(
-                      title:
-                          'Transaction ${state.pathParameters['txId'] ?? ''}',
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: _PlaceholderScreen(
+                        title:
+                            'Transaction ${state.pathParameters['txId'] ?? ''}',
+                      ),
                     ),
                   ),
                 ],
@@ -219,19 +251,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: RoutePaths.profileEdit,
                     name: RouteNames.profileEdit,
-                    builder: (_, _) =>
-                        const _PlaceholderScreen(title: 'Edit Profile'),
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: const _PlaceholderScreen(title: 'Edit Profile'),
+                    ),
                   ),
                   GoRoute(
                     path: RoutePaths.profileSecurity,
                     name: RouteNames.profileSecurity,
-                    builder: (_, _) => const SecuritySettingsScreen(),
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: const SecuritySettingsScreen(),
+                    ),
                   ),
                   GoRoute(
                     path: RoutePaths.profileSupport,
                     name: RouteNames.profileSupport,
-                    builder: (_, _) =>
-                        const _PlaceholderScreen(title: 'Support'),
+                    pageBuilder: (_, state) =>
+                        VaultedPageTransitions.detailTransition(
+                      key: state.pageKey,
+                      child: const _PlaceholderScreen(title: 'Support'),
+                    ),
                   ),
                 ],
               ),

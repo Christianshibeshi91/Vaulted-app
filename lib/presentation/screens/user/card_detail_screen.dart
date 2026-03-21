@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,8 +8,10 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
+import '../../../core/utils/clipboard_manager.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/screenshot_prevention.dart';
 import '../../../data/models/card_model.dart';
 import '../../../data/models/transaction_model.dart';
 import '../../providers/card_providers.dart';
@@ -26,7 +27,8 @@ class CardDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<CardDetailScreen> createState() => _CardDetailScreenState();
 }
 
-class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
+class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
+    with ScreenshotPreventionMixin {
   bool _showCardNumber = false;
   bool _showPin = false;
 
@@ -187,10 +189,12 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                             _ActionIcon(
                               icon: Icons.copy,
                               onTap: () {
-                                Clipboard.setData(ClipboardData(
-                                    text: card.cardNumberEncrypted!));
-                                Haptics.lightTap();
-                                _showCopiedSnackbar(context);
+                                VaultedClipboard.copyAndClear(
+                                  context,
+                                  card.cardNumberEncrypted!,
+                                  label: 'Card number',
+                                  timeout: const Duration(seconds: 30),
+                                );
                               },
                               tooltip: 'Copy',
                             ),
@@ -222,10 +226,12 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                             _ActionIcon(
                               icon: Icons.copy,
                               onTap: () {
-                                Clipboard.setData(
-                                    ClipboardData(text: card.pinEncrypted!));
-                                Haptics.lightTap();
-                                _showCopiedSnackbar(context);
+                                VaultedClipboard.copyAndClear(
+                                  context,
+                                  card.pinEncrypted!,
+                                  label: 'PIN',
+                                  timeout: const Duration(seconds: 30),
+                                );
                               },
                               tooltip: 'Copy',
                             ),
@@ -481,21 +487,6 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
             child: const Text('Delete'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showCopiedSnackbar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Copied to clipboard',
-          style: VaultedTypography.bodyMedium.copyWith(
-            color: VaultedColors.textPrimary,
-          ),
-        ),
-        duration: const Duration(seconds: 2),
-        backgroundColor: VaultedColors.bgCard,
       ),
     );
   }

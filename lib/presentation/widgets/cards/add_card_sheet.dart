@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/constants/retailers.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/utils/encryption.dart';
+import '../../../core/utils/secure_storage.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
@@ -111,14 +113,17 @@ class _AddCardSheetState extends State<AddCardSheet> {
         'updatedAt': Timestamp.fromDate(now),
       };
 
+      final encryptionService = EncryptionService(SecureStorageService.instance);
+      await encryptionService.initialise();
+
       final cardNumber = _cardNumberController.text.trim();
       if (cardNumber.isNotEmpty) {
-        cardData['cardNumberEncrypted'] = cardNumber;
+        cardData['cardNumberEncrypted'] = encryptionService.encrypt(cardNumber);
       }
 
       final pin = _pinController.text.trim();
       if (pin.isNotEmpty) {
-        cardData['pinEncrypted'] = pin;
+        cardData['pinEncrypted'] = encryptionService.encrypt(pin);
       }
 
       final notes = _notesController.text.trim();

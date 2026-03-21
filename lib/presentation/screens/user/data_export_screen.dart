@@ -80,7 +80,7 @@ class _DataExportScreenState extends State<DataExportScreen> {
       if (mounted) {
         Haptics.error();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: ${e.toString()}')),
+          const SnackBar(content: Text('Export failed. Please try again.')),
         );
       }
     } finally {
@@ -204,7 +204,7 @@ class _DataExportScreenState extends State<DataExportScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Deletion failed: ${e.toString()}')),
+          const SnackBar(content: Text('Deletion failed. Please try again.')),
         );
       }
     }

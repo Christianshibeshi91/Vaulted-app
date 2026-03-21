@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -21,7 +22,9 @@ Future<void> main() async {
     await Firebase.initializeApp();
     debugPrint('Vaulted: Firebase initialised.');
   } catch (e) {
-    debugPrint('Vaulted: Firebase not configured yet — $e');
+    if (kDebugMode) {
+      debugPrint('Vaulted: Firebase not configured yet -- $e');
+    }
   }
 
   // ── Lock orientation to portrait ──────────────────────────────

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -73,18 +74,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Replace with FirebaseAuth.createUserWithEmailAndPassword
-      await Future<void>.delayed(const Duration(seconds: 2));
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      await credential.user?.updateDisplayName(_nameController.text.trim());
 
       Haptics.success();
       if (mounted) {
         context.goNamed(RouteNames.authVerifyEmail);
       }
-    } catch (e) {
+    } on FirebaseAuthException catch (_) {
       Haptics.error();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
+          const SnackBar(
+            content: Text('Registration failed. Please try again.'),
+          ),
+        );
+      }
+    } catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration failed. Please try again.'),
+          ),
         );
       }
     } finally {

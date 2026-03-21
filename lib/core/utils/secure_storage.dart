@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Keys used in secure storage. Centralised to prevent typo bugs.
@@ -19,6 +20,10 @@ enum StorageKey {
 /// and a singleton instance so only one storage handle exists.
 class SecureStorageService {
   SecureStorageService._();
+
+  /// Test-only constructor so fakes can extend this class.
+  @visibleForTesting
+  SecureStorageService.forTest();
   static final SecureStorageService instance = SecureStorageService._();
 
   static const _storage = FlutterSecureStorage(
