@@ -31,6 +31,14 @@ abstract final class Formatters {
   /// Compact format for large values: `$1.2K`, `$3.4M`.
   static String currencyCompact(double amount) => _usdCompact.format(amount);
 
+  /// Compact number (no currency): `12,847` or `1.2K` for large values.
+  static String compactNumber(int value) {
+    if (value >= 1000000) {
+      return NumberFormat.compact(locale: 'en_US').format(value);
+    }
+    return NumberFormat.decimalPattern('en_US').format(value);
+  }
+
   /// Formats cents integer (e.g. 12350) as `$123.50`.
   static String currencyFromCents(int cents) =>
       _usdFull.format(cents / 100.0);

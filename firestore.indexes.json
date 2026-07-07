@@ -28,7 +28,7 @@
       "collectionGroup": "cards",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "retailerName", "order": "ASCENDING" },
+        { "fieldPath": "retailer", "order": "ASCENDING" },
         { "fieldPath": "expirationDate", "order": "ASCENDING" }
       ]
     },

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/route_names.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/haptics.dart';
@@ -10,7 +11,6 @@ import '../../../core/utils/validators.dart';
 import '../../providers/auth_providers.dart';
 import 'active_sessions_screen.dart';
 import 'connected_accounts_screen.dart';
-import 'mfa_setup_screen.dart';
 
 /// Security settings: password change, MFA, biometric, auto-lock, sessions.
 class SecuritySettingsScreen extends ConsumerStatefulWidget {
@@ -52,52 +52,26 @@ class _SecuritySettingsScreenState
 
               VaultedSpacing.gapLg,
 
-              // Two-Factor Authentication
-              _SectionTitle(title: 'Two-Factor Authentication'),
-              _ToggleTile(
-                icon: Icons.security_rounded,
-                title: 'MFA',
-                subtitle: user.mfaEnabled
-                    ? 'Authenticator app enabled'
-                    : 'Add an extra layer of security',
-                value: user.mfaEnabled,
-                onChanged: (enabled) {
-                  Haptics.toggle();
-                  if (enabled) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const MfaSetupScreen(),
-                      ),
-                    );
-                  }
-                  // Disable MFA flow would require verification
-                },
-              ),
-
-              VaultedSpacing.gapLg,
-
-              // Biometric
-              _SectionTitle(title: 'Biometric'),
-              _ToggleTile(
-                icon: Icons.fingerprint_rounded,
-                title: 'Biometric Unlock',
-                subtitle: 'Use fingerprint or face to unlock',
-                value: user.biometricEnabled,
-                onChanged: (enabled) {
-                  Haptics.toggle();
-                  // Toggle biometric in Firestore + local_auth enrollment
-                },
-              ),
-
-              VaultedSpacing.gapLg,
-
-              // Auto-Lock
-              _SectionTitle(title: 'Auto-Lock'),
+              // Two-Factor Authentication → own screen
+              _SectionTitle(title: 'Authentication'),
               _ActionTile(
-                icon: Icons.timer_outlined,
-                title: 'Auto-Lock Timer',
+                icon: Icons.shield_rounded,
+                title: 'Two-Factor Authentication',
+                subtitle: user.mfaEnabled
+                    ? 'Enabled — Authenticator app'
+                    : 'Add an extra layer of security',
+                onTap: () => context.goNamed(RouteNames.profileTwoFactor),
+              ),
+
+              VaultedSpacing.gapLg,
+
+              // Auto-Lock → own screen
+              _SectionTitle(title: 'App Protection'),
+              _ActionTile(
+                icon: Icons.lock_clock_rounded,
+                title: 'Auto-Lock',
                 subtitle: _autoLockLabel(user.autoLockMinutes),
-                onTap: () => _showAutoLockPicker(context, user.autoLockMinutes),
+                onTap: () => context.goNamed(RouteNames.profileAutoLock),
               ),
 
               VaultedSpacing.gapLg,
@@ -221,69 +195,6 @@ class _SecuritySettingsScreenState
     );
   }
 
-  void _showAutoLockPicker(BuildContext context, int currentValue) {
-    Haptics.mediumTap();
-    const options = [
-      (0, 'Never'),
-      (1, '1 minute'),
-      (5, '5 minutes'),
-      (15, '15 minutes'),
-      (30, '30 minutes'),
-    ];
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: VaultedColors.bgSecondary,
-      showDragHandle: true,
-      builder: (ctx) => Padding(
-        padding: VaultedSpacing.bottomSheet,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Auto-Lock Timer', style: VaultedTypography.headlineMedium),
-            VaultedSpacing.gapXl,
-            ...options.map(
-              (opt) => Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    Haptics.selection();
-                    Navigator.pop(ctx);
-                    // Update autoLockMinutes in Firestore
-                  },
-                  splashColor: VaultedColors.accentGoldDim,
-                  borderRadius: VaultedRadii.brButton,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: VaultedSpacing.lg,
-                      vertical: VaultedSpacing.md,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            opt.$2,
-                            style: VaultedTypography.bodyLarge,
-                          ),
-                        ),
-                        if (opt.$1 == currentValue)
-                          const Icon(
-                            Icons.check_rounded,
-                            color: VaultedColors.accentGold,
-                            size: 20,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // -- Reusable section title ----------------------------------------------
@@ -369,47 +280,3 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-// -- Toggle tile (switch) ------------------------------------------------
-
-class _ToggleTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ToggleTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: VaultedSpacing.xl,
-        vertical: VaultedSpacing.sm,
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: VaultedColors.textSecondary, size: 22),
-          const SizedBox(width: VaultedSpacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: VaultedTypography.bodyLarge),
-                const SizedBox(height: 2),
-                Text(subtitle, style: VaultedTypography.bodyMedium),
-              ],
-            ),
-          ),
-          Switch(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}

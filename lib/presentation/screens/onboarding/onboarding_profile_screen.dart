@@ -112,11 +112,12 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
       String? avatarUrl;
 
       if (_avatarBytes != null) {
-        final ext = _avatarFileName?.split('.').last ?? 'jpg';
+        final ext = (_avatarFileName?.split('.').last ?? 'jpg').toLowerCase();
         final ref = FirebaseStorage.instance
             .ref()
-            .child('avatars')
-            .child('${user.uid}.$ext');
+            .child('users')
+            .child(user.uid)
+            .child('avatar.$ext');
         await ref.putData(
           _avatarBytes!,
           SettableMetadata(contentType: 'image/$ext'),
@@ -125,11 +126,18 @@ class _OnboardingProfileScreenState extends State<OnboardingProfileScreen> {
         await user.updatePhotoURL(avatarUrl);
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      final profileData = <String, dynamic>{
         'displayName': displayName,
-        'avatarUrl': avatarUrl,
         'email': user.email ?? '',
-      }, SetOptions(merge: true));
+      };
+      if (avatarUrl != null) {
+        profileData['avatarUrl'] = avatarUrl;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(profileData, SetOptions(merge: true));
     } catch (_) {
       // Silent — profile data will sync on next login
     }

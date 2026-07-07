@@ -72,14 +72,16 @@ void main() {
       expect(decrypted, plaintext);
     });
 
-    test('encrypt produces iv:ciphertext format (two base64 parts)', () async {
+    test('encrypt produces iv:ciphertext:hmac format', () async {
       await service.initialise();
       final ciphertext = service.encrypt('test data');
       final parts = ciphertext.split(':');
-      expect(parts.length, 2);
-      // Both parts should be valid base64
+      expect(parts.length, 3);
+      // IV and ciphertext should be valid base64
       expect(() => base64Decode(parts[0]), returnsNormally);
       expect(() => base64Decode(parts[1]), returnsNormally);
+      // HMAC should be a sha256 hex digest
+      expect(parts[2], matches(RegExp(r'^[a-f0-9]{64}$')));
     });
 
     test('different plaintexts produce different ciphertexts', () async {
@@ -126,6 +128,18 @@ void main() {
       await service.initialise();
       expect(
         () => service.decrypt('malformed_no_colon'),
+        throwsA(isA<EncryptionException>()),
+      );
+    });
+
+    test('throws when ciphertext HMAC has been tampered with', () async {
+      await service.initialise();
+      final ciphertext = service.encrypt('sensitive');
+      final parts = ciphertext.split(':');
+      final tampered = '${parts[0]}:${parts[1]}:${'0' * 64}';
+
+      expect(
+        () => service.decrypt(tampered),
         throwsA(isA<EncryptionException>()),
       );
     });

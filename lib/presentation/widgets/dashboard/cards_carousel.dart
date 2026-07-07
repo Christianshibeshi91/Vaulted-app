@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/retailers.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
@@ -27,16 +26,16 @@ class CardsCarousel extends ConsumerWidget {
       data: (cards) {
         if (cards.isEmpty) return const _CarouselEmpty();
 
-        final activeCards =
-            cards.where((c) => c.status == CardStatus.active).toList();
+        final activeCards = cards
+            .where((c) => c.status == CardStatus.active)
+            .toList();
         if (activeCards.isEmpty) return const _CarouselEmpty();
 
         return SizedBox(
-          height: 140,
+          height: 160,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding:
-                const EdgeInsets.symmetric(horizontal: VaultedSpacing.xl),
+            padding: const EdgeInsets.symmetric(horizontal: VaultedSpacing.xl),
             itemCount: activeCards.length,
             itemBuilder: (context, index) {
               final card = activeCards[index];
@@ -58,111 +57,89 @@ class _CarouselCard extends StatelessWidget {
   final int index;
   final VoidCallback? onTap;
 
-  const _CarouselCard({
-    required this.card,
-    required this.index,
-    this.onTap,
-  });
-
-  Color get _retailerColor {
-    final retailer = Retailers.byName(card.retailer);
-    if (retailer != null) return retailer.color;
-    // Parse hex from model if no match.
-    final hex = card.retailerColor.replaceFirst('#', '');
-    return Color(int.parse('FF$hex', radix: 16));
-  }
+  const _CarouselCard({required this.card, required this.index, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    // Extract last 4 digits from card number if available
+    final last4 =
+        card.cardNumberEncrypted != null &&
+            card.cardNumberEncrypted!.length >= 4
+        ? card.cardNumberEncrypted!.substring(
+            card.cardNumberEncrypted!.length - 4,
+          )
+        : '••••';
+
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 200,
-        margin: const EdgeInsets.only(right: VaultedSpacing.md),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: VaultedColors.bgCard,
-          borderRadius: VaultedRadii.brCard,
-          border: Border.all(color: VaultedColors.border),
-        ),
-        child: Stack(
-          children: [
-            // Subtle retailer-colored accent stripe at top
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 3,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _retailerColor.withValues(alpha: 0.6),
-                      _retailerColor.withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-              ),
+          onTap: onTap,
+          child: Container(
+            width: 220,
+            margin: const EdgeInsets.only(right: VaultedSpacing.md),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: VaultedColors.bgCard,
+              borderRadius: VaultedRadii.brCard,
+              border: Border.all(color: VaultedColors.border),
             ),
-            Padding(
+            child: Padding(
               padding: VaultedSpacing.cardInner,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Top row: RETAILER label + gold dot
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _retailerColor.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            card.retailer.isNotEmpty
-                                ? card.retailer[0].toUpperCase()
-                                : '?',
-                            style: VaultedTypography.bodyLarge.copyWith(
-                              color: _retailerColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                      Text(
+                        'RETAILER',
+                        style: VaultedTypography.labelMicro.copyWith(
+                          color: VaultedColors.textMuted,
+                          letterSpacing: 1.2,
                         ),
                       ),
-                      VaultedSpacing.gapHSm,
-                      Expanded(
-                        child: Text(
-                          card.retailer,
-                          style: VaultedTypography.bodyLarge.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: VaultedColors.accentGold,
+                          shape: BoxShape.circle,
                         ),
                       ),
                     ],
                   ),
+                  // Retailer name
+                  Text(
+                    card.retailer,
+                    style: VaultedTypography.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  VaultedSpacing.gapSm,
+                  // Balance in gold
                   Text(
                     Formatters.currency(card.balance),
                     style: VaultedTypography.monoLarge.copyWith(
                       color: VaultedColors.accentGold,
                     ),
                   ),
+                  // Last 4 digits
+                  Text(
+                    '•••• $last4',
+                    style: VaultedTypography.labelSmall.copyWith(
+                      color: VaultedColors.textMuted,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    )
-        .animate()
-        .fadeIn(
-          duration: 300.ms,
-          delay: (60 * index).ms,
-          curve: Curves.easeOut,
+          ),
         )
+        .animate()
+        .fadeIn(duration: 300.ms, delay: (60 * index).ms, curve: Curves.easeOut)
         .slideX(
           begin: 0.1,
           end: 0,
@@ -184,21 +161,22 @@ class _CarouselSkeleton extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: VaultedSpacing.xl),
         itemCount: 3,
-        itemBuilder: (_, index) => Container(
-          width: 200,
-          margin: const EdgeInsets.only(right: VaultedSpacing.md),
-          decoration: BoxDecoration(
-            color: VaultedColors.bgCard,
-            borderRadius: VaultedRadii.brCard,
-            border: Border.all(color: VaultedColors.border),
-          ),
-        )
-            .animate(onPlay: (c) => c.repeat())
-            .shimmer(
-              duration: 1200.ms,
-              delay: (100 * index).ms,
-              color: VaultedColors.shimmerHighlight,
-            ),
+        itemBuilder: (_, index) =>
+            Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(right: VaultedSpacing.md),
+                  decoration: BoxDecoration(
+                    color: VaultedColors.bgCard,
+                    borderRadius: VaultedRadii.brCard,
+                    border: Border.all(color: VaultedColors.border),
+                  ),
+                )
+                .animate(onPlay: (c) => c.repeat())
+                .shimmer(
+                  duration: 1200.ms,
+                  delay: (100 * index).ms,
+                  color: VaultedColors.shimmerHighlight,
+                ),
       ),
     );
   }

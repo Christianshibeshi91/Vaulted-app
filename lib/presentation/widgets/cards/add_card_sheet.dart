@@ -13,6 +13,8 @@ import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../features/balance_checker/data/retailer_configs.dart';
+import '../../../features/balance_checker/presentation/screens/balance_check_screen.dart';
 import 'retailer_picker.dart';
 
 /// Bottom sheet for adding a new gift card to the vault.
@@ -43,7 +45,6 @@ class _AddCardSheetState extends State<AddCardSheet> {
   final _cardNumberController = TextEditingController();
   final _pinController = TextEditingController();
   final _balanceController = TextEditingController();
-  final _notesController = TextEditingController();
 
   Retailer? _selectedRetailer;
   DateTime? _expirationDate;
@@ -55,7 +56,6 @@ class _AddCardSheetState extends State<AddCardSheet> {
     _cardNumberController.dispose();
     _pinController.dispose();
     _balanceController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -124,11 +124,6 @@ class _AddCardSheetState extends State<AddCardSheet> {
       final pin = _pinController.text.trim();
       if (pin.isNotEmpty) {
         cardData['pinEncrypted'] = encryptionService.encrypt(pin);
-      }
-
-      final notes = _notesController.text.trim();
-      if (notes.isNotEmpty) {
-        cardData['notes'] = notes;
       }
 
       if (_expirationDate != null) {
@@ -240,6 +235,19 @@ class _AddCardSheetState extends State<AddCardSheet> {
   Widget _buildPicker() {
     return RetailerPicker(
       onSelected: (retailer) {
+        // Check if this retailer has a balance-check config
+        final config = RetailerConfigs.byName(retailer.name);
+        if (config != null) {
+          // Navigate to the balance check screen
+          Navigator.of(context).pop(); // dismiss sheet
+          Navigator.of(context).push(
+            MaterialPageRoute<bool>(
+              builder: (_) => BalanceCheckScreen(config: config),
+            ),
+          );
+          return;
+        }
+        // Fallback to manual form for unsupported retailers
         setState(() {
           _selectedRetailer = retailer;
           _showForm = true;
@@ -296,7 +304,7 @@ class _AddCardSheetState extends State<AddCardSheet> {
                 .fadeIn(duration: 200.ms, curve: Curves.easeOut),
           VaultedSpacing.gapLg,
 
-          // Card Number
+          // Card Number — accepts letters, dashes, numbers
           TextFormField(
             controller: _cardNumberController,
             style: VaultedTypography.monoMedium,
@@ -305,10 +313,11 @@ class _AddCardSheetState extends State<AddCardSheet> {
               hintText: 'Enter card number',
               prefixIcon: Icon(Icons.credit_card, size: 20),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
             inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(19),
+              FilteringTextInputFormatter.allow(
+                  RegExp(r'[a-zA-Z0-9\-\s]')),
+              LengthLimitingTextInputFormatter(30),
             ],
           ),
           VaultedSpacing.gapLg,
@@ -322,20 +331,21 @@ class _AddCardSheetState extends State<AddCardSheet> {
               hintText: 'Enter PIN (if applicable)',
               prefixIcon: Icon(Icons.lock_outline, size: 20),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
             inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(8),
+              FilteringTextInputFormatter.allow(
+                  RegExp(r'[a-zA-Z0-9]')),
+              LengthLimitingTextInputFormatter(12),
             ],
           ),
           VaultedSpacing.gapLg,
 
-          // Balance
+          // Balance (optional)
           TextFormField(
             controller: _balanceController,
             style: VaultedTypography.gold(VaultedTypography.monoLarge),
             decoration: const InputDecoration(
-              labelText: 'Balance *',
+              labelText: 'Balance',
               hintText: '0.00',
               prefixIcon: Icon(Icons.attach_money, size: 20),
             ),
@@ -345,20 +355,10 @@ class _AddCardSheetState extends State<AddCardSheet> {
               FilteringTextInputFormatter.allow(
                   RegExp(r'^\d*\.?\d{0,2}')),
             ],
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Balance is required';
-              }
-              final parsed = double.tryParse(value.trim());
-              if (parsed == null || parsed < 0) {
-                return 'Enter a valid amount';
-              }
-              return null;
-            },
           ),
           VaultedSpacing.gapLg,
 
-          // Expiration Date
+          // Expiration Date (optional)
           GestureDetector(
             onTap: _pickExpirationDate,
             child: InputDecorator(
@@ -376,20 +376,6 @@ class _AddCardSheetState extends State<AddCardSheet> {
                         VaultedTypography.bodyLarge),
               ),
             ),
-          ),
-          VaultedSpacing.gapLg,
-
-          // Notes
-          TextFormField(
-            controller: _notesController,
-            style: VaultedTypography.bodyLarge,
-            decoration: const InputDecoration(
-              labelText: 'Notes',
-              hintText: 'Optional notes...',
-              prefixIcon: Icon(Icons.notes, size: 20),
-            ),
-            maxLines: 2,
-            maxLength: 250,
           ),
           VaultedSpacing.gapXxl,
 

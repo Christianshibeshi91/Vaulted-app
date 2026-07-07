@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -405,11 +406,25 @@ class AdminUserDetailScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      await _logAction(ref, AuditAction.deleteUser, admin);
-      if (context.mounted) {
-        Haptics.heavyTap();
-        _showConfirmation(context, 'User deletion queued');
-        Navigator.of(context).pop();
+      try {
+        // Call the deleteUserCascade cloud function for proper cleanup
+        final functions = FirebaseFunctions.instance;
+        await functions.httpsCallable('deleteUserCascade').call({
+          'targetUid': uid,
+        });
+        await _logAction(ref, AuditAction.deleteUser, admin);
+        if (context.mounted) {
+          Haptics.heavyTap();
+          _showConfirmation(context, 'User deleted successfully');
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (context.mounted) {
+          Haptics.error();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete user: $e')),
+          );
+        }
       }
     }
   }

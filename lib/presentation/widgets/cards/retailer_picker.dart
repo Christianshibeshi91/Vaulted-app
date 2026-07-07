@@ -7,6 +7,8 @@ import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../features/balance_checker/data/retailer_configs.dart';
+import '../../../features/balance_checker/domain/entities/retailer_config.dart';
 
 /// Searchable grid of retailers for the add-card flow.
 class RetailerPicker extends StatefulWidget {
@@ -114,13 +116,20 @@ class _RetailerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = RetailerConfigs.byName(retailer.name);
+    final hasAutoCheck = config != null && config.phase == RetailerPhase.webview;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: VaultedColors.bgCard,
           borderRadius: VaultedRadii.brCard,
-          border: Border.all(color: VaultedColors.border),
+          border: Border.all(
+            color: hasAutoCheck
+                ? VaultedColors.accentGold.withValues(alpha: 0.2)
+                : VaultedColors.border,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -153,6 +162,32 @@ class _RetailerTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (config != null) ...[
+              const SizedBox(height: 3),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  color: hasAutoCheck
+                      ? VaultedColors.success.withValues(alpha: 0.1)
+                      : VaultedColors.warning.withValues(alpha: 0.1),
+                  borderRadius: VaultedRadii.brBadge,
+                ),
+                child: Text(
+                  hasAutoCheck ? 'Auto' : 'Manual',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
+                    color: hasAutoCheck
+                        ? VaultedColors.success
+                        : VaultedColors.warning,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

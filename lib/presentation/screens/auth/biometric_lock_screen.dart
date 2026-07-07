@@ -1,8 +1,8 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../../core/router/route_names.dart';
 import '../../../core/theme/colors.dart';
@@ -37,14 +37,32 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Replace with local_auth authenticate call:
-      // final localAuth = LocalAuthentication();
-      // final didAuth = await localAuth.authenticate(
-      //   localizedReason: 'Unlock your vault',
-      //   options: const AuthenticationOptions(biometricOnly: true),
-      // );
-      // if (didAuth && mounted) { /* navigate away */ }
-      await Future<void>.delayed(const Duration(seconds: 1));
+      final localAuth = LocalAuthentication();
+
+      final canCheck = await localAuth.canCheckBiometrics;
+      final isSupported = await localAuth.isDeviceSupported();
+
+      if (!canCheck || !isSupported) {
+        // Device doesn't support biometrics — require password instead
+        if (mounted) {
+          Haptics.warning();
+          context.goNamed(RouteNames.authLogin);
+        }
+        return;
+      }
+
+      final didAuth = await localAuth.authenticate(
+        localizedReason: 'Unlock your vault',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (didAuth && mounted) {
+        Haptics.success();
+        context.goNamed(RouteNames.home);
+      }
     } catch (_) {
       Haptics.error();
     } finally {
@@ -54,12 +72,16 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
 
   /// Returns the appropriate biometric icon for the platform.
   IconData get _biometricIcon {
-    if (Platform.isIOS) return Icons.face_unlock_rounded;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return Icons.face_unlock_rounded;
+    }
     return Icons.fingerprint_rounded;
   }
 
   String get _biometricLabel {
-    if (Platform.isIOS) return 'Tap to unlock with Face ID';
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return 'Tap to unlock with Face ID';
+    }
     return 'Tap to unlock with fingerprint';
   }
 

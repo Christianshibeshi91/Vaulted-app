@@ -28,12 +28,19 @@ export const exportUserData = functions.https.onCall(async (_data, context) => {
   }
   const profile = userSnap.data();
 
-  // ── Gather cards ───────────────────────────────────────────────
+  // ── Gather cards (strip encrypted secrets) ─────────────────────
   const cardsSnap = await db.collection(`users/${uid}/cards`).get();
-  const cards = cardsSnap.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+  const cards = cardsSnap.docs.map((doc) => {
+    const data = doc.data();
+    // Strip encrypted sensitive fields from export for security
+    const { cardNumberEncrypted, pinEncrypted, ...safeData } = data;
+    return {
+      id: doc.id,
+      ...safeData,
+      cardNumberPresent: !!cardNumberEncrypted,
+      pinPresent: !!pinEncrypted,
+    };
+  });
 
   // ── Gather transactions ────────────────────────────────────────
   const txSnap = await db

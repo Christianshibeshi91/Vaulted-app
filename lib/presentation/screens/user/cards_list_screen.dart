@@ -560,8 +560,12 @@ class _ListTileCard extends StatelessWidget {
     final retailer =
         Retailers.byName(card.retailer);
     if (retailer != null) return retailer.color;
-    final hex = card.retailerColor.replaceFirst('#', '');
-    return Color(int.parse('FF$hex', radix: 16));
+    try {
+      final hex = card.retailerColor.replaceFirst('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return Retailers.fallbackColor;
+    }
   }
 
   @override

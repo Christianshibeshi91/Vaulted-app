@@ -10,9 +10,11 @@ import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/clipboard_manager.dart';
+import '../../../core/utils/encryption.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/haptics.dart';
 import '../../../core/utils/screenshot_prevention.dart';
+import '../../../core/utils/secure_storage.dart';
 import '../../../data/models/card_model.dart';
 import '../../../data/models/transaction_model.dart';
 import '../../providers/card_providers.dart';
@@ -35,6 +37,32 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
     with ScreenshotPreventionMixin {
   bool _showCardNumber = false;
   bool _showPin = false;
+  String? _decryptedCardNumber;
+  String? _decryptedPin;
+
+  @override
+  void initState() {
+    super.initState();
+    _decryptFields();
+  }
+
+  Future<void> _decryptFields() async {
+    try {
+      final card = ref.read(cardByIdProvider(widget.cardId));
+      if (card == null) return;
+      final enc = EncryptionService(SecureStorageService.instance);
+      await enc.initialise();
+      if (card.cardNumberEncrypted != null) {
+        _decryptedCardNumber = enc.decrypt(card.cardNumberEncrypted!);
+      }
+      if (card.pinEncrypted != null) {
+        _decryptedPin = enc.decrypt(card.pinEncrypted!);
+      }
+    } catch (_) {
+      // Decryption failed — fields will remain null
+    }
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,15 +143,15 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
                 ),
                 child: Column(
                   children: [
-                    // Card Number
-                    if (card.cardNumberEncrypted != null)
+                    // Card Number (decrypted)
+                    if (_decryptedCardNumber != null)
                       _InfoRow(
                         label: 'Card Number',
                         value: _showCardNumber
                             ? Formatters.groupCardDigits(
-                                card.cardNumberEncrypted!)
+                                _decryptedCardNumber!)
                             : Formatters.maskCardNumber(
-                                card.cardNumberEncrypted!),
+                                _decryptedCardNumber!),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -145,7 +173,7 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
                               onTap: () {
                                 VaultedClipboard.copyAndClear(
                                   context,
-                                  card.cardNumberEncrypted!,
+                                  _decryptedCardNumber!,
                                   label: 'Card number',
                                   timeout:
                                       const Duration(seconds: 30),
@@ -156,15 +184,21 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
                           ],
                         ),
                         mono: true,
+                      )
+                    else if (card.cardNumberEncrypted != null)
+                      _InfoRow(
+                        label: 'Card Number',
+                        value: 'Decrypting...',
+                        mono: true,
                       ),
 
-                    // PIN
-                    if (card.pinEncrypted != null) ...[
+                    // PIN (decrypted)
+                    if (_decryptedPin != null) ...[
                       const Divider(color: VaultedColors.border),
                       _InfoRow(
                         label: 'PIN',
                         value: _showPin
-                            ? card.pinEncrypted!
+                            ? _decryptedPin!
                             : '\u2022\u2022\u2022\u2022',
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -185,7 +219,7 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
                               onTap: () {
                                 VaultedClipboard.copyAndClear(
                                   context,
-                                  card.pinEncrypted!,
+                                  _decryptedPin!,
                                   label: 'PIN',
                                   timeout:
                                       const Duration(seconds: 30),
@@ -195,6 +229,13 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
                             ),
                           ],
                         ),
+                        mono: true,
+                      ),
+                    ] else if (card.pinEncrypted != null) ...[
+                      const Divider(color: VaultedColors.border),
+                      _InfoRow(
+                        label: 'PIN',
+                        value: 'Decrypting...',
                         mono: true,
                       ),
                     ],
@@ -411,42 +452,57 @@ class _CardRedeemScreenState extends ConsumerState<CardRedeemScreen>
       if (uid == null) return;
 
       final firestore = FirebaseFirestore.instance;
-      final newBalance = card.balance - amount;
-      final isDepleted = newBalance <= 0;
-
-      final batch = firestore.batch();
-
-      // Create transaction doc
-      final txRef = firestore
-          .collection('users')
-          .doc(uid)
-          .collection('transactions')
-          .doc();
-
-      batch.set(txRef, {
-        'cardId': card.id,
-        'retailer': card.retailer,
-        'type': TransactionType.purchase,
-        'amount': -amount,
-        'balanceAfter': isDepleted ? 0.0 : newBalance,
-        'description': 'Purchase at ${card.retailer}',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Update card balance
       final cardRef = firestore
           .collection('users')
           .doc(uid)
           .collection('cards')
           .doc(card.id);
 
-      batch.update(cardRef, {
-        'balance': isDepleted ? 0.0 : newBalance,
-        'status': isDepleted ? CardStatus.depleted : card.status,
-        'updatedAt': FieldValue.serverTimestamp(),
+      // Use a Firestore transaction to prevent race conditions on balance
+      await firestore.runTransaction((transaction) async {
+        final cardSnap = await transaction.get(cardRef);
+        if (!cardSnap.exists) {
+          throw Exception('Card not found');
+        }
+
+        final currentBalance =
+            (cardSnap.data()?['balance'] as num?)?.toDouble() ?? 0.0;
+        if (amount > currentBalance) {
+          throw Exception('Insufficient balance');
+        }
+
+        final newBalance = currentBalance - amount;
+        final isDepleted = newBalance <= 0;
+
+        // Create transaction doc
+        final txRef = firestore
+            .collection('users')
+            .doc(uid)
+            .collection('transactions')
+            .doc();
+
+        transaction.set(txRef, {
+          'cardId': card.id,
+          'retailer': card.retailer,
+          'type': TransactionType.purchase,
+          'amount': -amount,
+          'balanceAfter': isDepleted ? 0.0 : newBalance,
+          'description': 'Purchase at ${card.retailer}',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update card balance atomically
+        transaction.update(cardRef, {
+          'balance': isDepleted ? 0.0 : newBalance,
+          'status': isDepleted
+              ? CardStatus.depleted
+              : cardSnap.data()?['status'] ?? card.status,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       });
 
-      await batch.commit();
+      final newBalance = card.balance - amount;
+      final isDepleted = newBalance <= 0;
 
       Haptics.success();
 

@@ -6,6 +6,8 @@ import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 
 /// A single KPI metric card for admin dashboards.
+///
+/// Layout order: label (top) -> value (middle) -> delta/status (bottom).
 class AdminKpiCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -13,6 +15,12 @@ class AdminKpiCard extends StatelessWidget {
   final String? delta;
   final bool isPositiveDelta;
   final bool useGoldAccent;
+
+  /// Optional status text shown instead of [delta] (e.g. "NEEDS ATTENTION").
+  final String? statusText;
+
+  /// Optional icon shown alongside [statusText].
+  final IconData? statusIcon;
 
   const AdminKpiCard({
     super.key,
@@ -22,6 +30,8 @@ class AdminKpiCard extends StatelessWidget {
     this.delta,
     this.isPositiveDelta = true,
     this.useGoldAccent = false,
+    this.statusText,
+    this.statusIcon,
   });
 
   @override
@@ -39,54 +49,18 @@ class AdminKpiCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: useGoldAccent
-                      ? VaultedColors.accentGoldDim
-                      : VaultedColors.bgInput,
-                  borderRadius: VaultedRadii.brBadge,
-                ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: useGoldAccent
-                      ? VaultedColors.accentGold
-                      : VaultedColors.textSecondary,
-                ),
-              ),
-              const Spacer(),
-              if (delta != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (isPositiveDelta
-                            ? VaultedColors.success
-                            : VaultedColors.danger)
-                        .withValues(alpha: 0.12),
-                    borderRadius: VaultedRadii.brBadge,
-                  ),
-                  child: Text(
-                    delta!,
-                    style: VaultedTypography.labelMicro.copyWith(
-                      color: isPositiveDelta
-                          ? VaultedColors.success
-                          : VaultedColors.danger,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
+          // -- TOP: uppercase label --
+          Text(
+            label.toUpperCase(),
+            style: VaultedTypography.muted(VaultedTypography.labelSmall)
+                .copyWith(letterSpacing: 1.2),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          VaultedSpacing.gapMd,
+
+          // -- MIDDLE: big value --
           Text(
             value,
             style: useGoldAccent
@@ -95,15 +69,112 @@ class AdminKpiCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          VaultedSpacing.gapXs,
+
+          // -- BOTTOM: delta badge or status text --
+          _buildFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    // Status text takes priority over delta.
+    if (statusText != null) {
+      return _StatusRow(
+        icon: statusIcon ?? Icons.warning_amber_rounded,
+        text: statusText!,
+        color: VaultedColors.warning,
+      );
+    }
+
+    if (delta != null) {
+      final color =
+          isPositiveDelta ? VaultedColors.success : VaultedColors.danger;
+      return _DeltaBadge(
+        delta: delta!,
+        color: color,
+        isPositive: isPositiveDelta,
+      );
+    }
+
+    // No footer content -- render empty to keep layout stable.
+    return const SizedBox.shrink();
+  }
+}
+
+/// Compact delta badge with an up/down arrow prefix.
+class _DeltaBadge extends StatelessWidget {
+  final String delta;
+  final Color color;
+  final bool isPositive;
+
+  const _DeltaBadge({
+    required this.delta,
+    required this.color,
+    required this.isPositive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: VaultedRadii.brBadge,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            size: 12,
+            color: color,
+          ),
+          const SizedBox(width: 3),
           Text(
-            label,
-            style: VaultedTypography.muted(VaultedTypography.labelSmall),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            delta,
+            style: VaultedTypography.labelMicro.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Status row with icon + warning/info text for non-delta cards.
+class _StatusRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _StatusRow({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: VaultedTypography.labelMicro.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

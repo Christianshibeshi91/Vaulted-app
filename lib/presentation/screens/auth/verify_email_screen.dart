@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/router/route_names.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/spacing.dart';
@@ -25,23 +28,33 @@ class VerifyEmailScreen extends StatefulWidget {
 class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   int _resendCooldown = 0;
   Timer? _resendTimer;
+  Timer? _pollTimer;
   bool _isResending = false;
 
-  // TODO: Replace with actual user email from auth state.
-  final String _userEmail = 'user@example.com';
+  String get _userEmail =>
+      FirebaseAuth.instance.currentUser?.email ?? '';
 
-  // Auto-poll placeholder:
-  // Timer.periodic(const Duration(seconds: 3), (timer) async {
-  //   await FirebaseAuth.instance.currentUser?.reload();
-  //   if (FirebaseAuth.instance.currentUser?.emailVerified == true) {
-  //     timer.cancel();
-  //     if (mounted) context.goNamed(RouteNames.onboarding);
-  //   }
-  // });
+  @override
+  void initState() {
+    super.initState();
+    // Auto-poll for email verification every 3 seconds
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      try {
+        await FirebaseAuth.instance.currentUser?.reload();
+        if (FirebaseAuth.instance.currentUser?.emailVerified == true) {
+          timer.cancel();
+          if (mounted) context.goNamed(RouteNames.onboarding);
+        }
+      } catch (_) {
+        // Silently handle reload errors during polling
+      }
+    });
+  }
 
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 
@@ -63,8 +76,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Replace with FirebaseAuth.currentUser.sendEmailVerification
-      await Future<void>.delayed(const Duration(seconds: 1));
+      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
 
       Haptics.success();
       _startCooldown();

@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { db, messaging } from "../utils/admin";
+import { FirebaseFirestore } from "@google-cloud/firestore";
+import { db, getPushToken, messaging } from "../utils/admin";
 
 /**
  * Scheduled function: runs daily at 09:00 UTC.
@@ -15,9 +16,18 @@ export const sendExpirationAlerts = functions.pubsub
       now.getTime() + 30 * 24 * 60 * 60 * 1000
     );
 
-    // Query all users, then their cards
-    const usersSnap = await db.collection("users").get();
+    // Query users in batches to avoid OOM on large user bases
     let alertCount = 0;
+    let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    const batchSize = 500;
+
+    while (true) {
+    let query: FirebaseFirestore.Query = db.collection("users").orderBy("__name__").limit(batchSize);
+    if (lastDoc) {
+      query = query.startAfter(lastDoc);
+    }
+    const usersSnap = await query.get();
+    if (usersSnap.empty) break;
 
     for (const userDoc of usersSnap.docs) {
       const uid = userDoc.id;
@@ -50,11 +60,23 @@ export const sendExpirationAlerts = functions.pubsub
           (expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );
 
+        // Dedup: skip if an expiration alert was already sent for this card in the last 7 days
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const existingAlert = await db
+          .collection(`users/${uid}/notifications`)
+          .where("type", "==", "expiration_alert")
+          .where("cardId", "==", cardDoc.id)
+          .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(sevenDaysAgo))
+          .limit(1)
+          .get();
+
+        if (!existingAlert.empty) continue;
+
         // Create in-app notification
         await db.collection(`users/${uid}/notifications`).add({
           type: "expiration_alert",
           title: "Card Expiring Soon",
-          body: `Your ${card.retailerName} card ($${card.balance}) expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`,
+          body: `Your ${card.retailer} card ($${card.balance}) expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`,
           cardId: cardDoc.id,
           isRead: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -64,10 +86,11 @@ export const sendExpirationAlerts = functions.pubsub
       }
 
       // Send FCM push if user has a token
-      if (userData.fcmToken) {
+      const pushToken = getPushToken(userData);
+      if (pushToken) {
         try {
           await messaging.send({
-            token: userData.fcmToken,
+            token: pushToken,
             notification: {
               title: "Cards Expiring Soon",
               body: `You have ${cardsSnap.size} card${cardsSnap.size === 1 ? "" : "s"} expiring within 30 days.`,
@@ -83,6 +106,10 @@ export const sendExpirationAlerts = functions.pubsub
         }
       }
     }
+
+    lastDoc = usersSnap.docs[usersSnap.docs.length - 1];
+    if (usersSnap.size < batchSize) break;
+    } // end while
 
     functions.logger.info("Expiration alerts sent", { alertCount });
   });

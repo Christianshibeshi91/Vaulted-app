@@ -1,8 +1,9 @@
+import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { auth, db, isAdmin, writeAuditLog } from "../utils/admin";
 
 interface SetAdminData {
-  targetUid: string;
+  targetUid?: string;
 }
 
 /**
@@ -11,7 +12,6 @@ interface SetAdminData {
  */
 export const setAdminClaim = functions.https.onCall(
   async (data: SetAdminData, context) => {
-    // ── Auth gate ──────────────────────────────────────────────
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
@@ -20,30 +20,43 @@ export const setAdminClaim = functions.https.onCall(
     }
 
     const callerUid = context.auth.uid;
-    const callerIsAdmin = await isAdmin(callerUid);
-    if (!callerIsAdmin) {
+    if (!(await isAdmin(callerUid))) {
       throw new functions.https.HttpsError(
         "permission-denied",
         "Only admins can grant admin privileges."
       );
     }
 
-    // ── Input validation ───────────────────────────────────────
-    const { targetUid } = data;
-    if (!targetUid || typeof targetUid !== "string") {
+    const rawTargetUid = data?.targetUid;
+    if (!rawTargetUid || typeof rawTargetUid !== "string") {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "targetUid must be a non-empty string."
       );
     }
 
-    // ── Set custom claim ───────────────────────────────────────
-    await auth.setCustomUserClaims(targetUid, { admin: true });
+    const targetUid = rawTargetUid.trim();
+    if (targetUid.length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "targetUid must be a non-empty string."
+      );
+    }
 
-    // ── Update Firestore ───────────────────────────────────────
-    await db.doc(`users/${targetUid}`).update({ role: "admin" });
+    const targetUser = await auth.getUser(targetUid);
+    await auth.setCustomUserClaims(targetUid, {
+      ...(targetUser.customClaims ?? {}),
+      admin: true,
+    });
 
-    // ── Audit log ──────────────────────────────────────────────
+    await db.doc(`users/${targetUid}`).set({ role: "admin" }, { merge: true });
+    await db.doc("admin/config").set(
+      {
+        adminUids: admin.firestore.FieldValue.arrayUnion([targetUid]),
+      },
+      { merge: true }
+    );
+
     await writeAuditLog({
       action: "SET_ADMIN_CLAIM",
       performedBy: callerUid,

@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { db, messaging, getAdminUsers } from "../utils/admin";
+import { db, messaging, getAdminUsers, getPushToken } from "../utils/admin";
 
 /**
  * Firestore trigger: fires when any transaction document is updated
@@ -22,12 +22,12 @@ export const onTransactionFlagged = functions.firestore
 
     const { userId, transactionId } = context.params;
 
-    // ── Create admin alert ───────────────────────────────────────
-    await db.collection("admin/alerts/items").add({
+    // ── Create admin alert (details stored server-side only) ─────
+    const alertDoc = await db.collection("admin/alerts/items").add({
       type: "fraud",
       severity: "high",
       title: "Transaction Flagged",
-      message: `Transaction ${transactionId} for user ${userId} was flagged. Amount: $${after.amount}, Retailer: ${after.retailerName ?? "unknown"}.`,
+      message: `Transaction ${transactionId} for user ${userId} was flagged. Amount: $${after.amount}, Retailer: ${after.retailer ?? "unknown"}.`,
       isResolved: false,
       userId,
       transactionId,
@@ -41,18 +41,19 @@ export const onTransactionFlagged = functions.firestore
       const adminDoc = await db.doc(`users/${adminUid}`).get();
       const adminData = adminDoc.data();
 
-      if (adminData?.fcmToken) {
+      const pushToken = getPushToken(adminData);
+      if (pushToken) {
         try {
+          // Use minimal data in push — no user IDs or amounts to prevent leakage
           await messaging.send({
-            token: adminData.fcmToken,
+            token: pushToken,
             notification: {
-              title: "Transaction Flagged",
-              body: `User ${userId}: $${after.amount} at ${after.retailerName ?? "unknown"}`,
+              title: "Transaction Alert",
+              body: "A transaction has been flagged for review.",
             },
             data: {
               type: "flagged_transaction",
-              userId,
-              transactionId,
+              alertId: alertDoc.id,
             },
           });
         } catch (err) {

@@ -153,26 +153,38 @@ class _NavItem extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    isActive ? activeIcon : icon,
-                    key: ValueKey(isActive),
-                    color: color,
-                    size: 22,
+                // Active background circle
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? VaultedColors.accentGold.withValues(alpha: 0.12)
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      isActive ? activeIcon : icon,
+                      key: ValueKey(isActive),
+                      color: color,
+                      size: 22,
+                    ),
                   ),
                 ),
                 if (badgeCount > 0)
                   Positioned(
-                    right: -6,
-                    top: -4,
+                    right: -2,
+                    top: 0,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 4,
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: VaultedColors.danger,
+                        color: VaultedColors.accentGold,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       constraints: const BoxConstraints(minWidth: 16),

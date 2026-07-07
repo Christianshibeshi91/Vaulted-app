@@ -8,6 +8,8 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
+import '../../../core/utils/apple_sign_in_helper.dart';
+import '../../../core/utils/google_sign_in_helper.dart';
 import '../../../core/utils/haptics.dart';
 import '../../../core/utils/validators.dart';
 
@@ -101,6 +103,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SnackBar(
             content: Text('Registration failed. Please try again.'),
           ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    Haptics.mediumTap();
+    setState(() => _isLoading = true);
+    try {
+      final credential = await signInWithGoogle();
+      if (credential != null && mounted) {
+        Haptics.success();
+        context.goNamed(RouteNames.onboarding);
+      }
+    } on FirebaseAuthException catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
+        );
+      }
+    } catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    Haptics.mediumTap();
+    setState(() => _isLoading = true);
+    try {
+      final credential = await signInWithApple();
+      if (credential != null && mounted) {
+        Haptics.success();
+        context.goNamed(RouteNames.onboarding);
+      }
+    } on FirebaseAuthException catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
+        );
+      }
+    } catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
         );
       }
     } finally {
@@ -353,14 +411,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _OrDivider(),
               VaultedSpacing.gapXxl,
               _SocialRow(
-                onGoogle: () {
-                  Haptics.mediumTap();
-                  // TODO: Google sign-in
-                },
-                onApple: () {
-                  Haptics.mediumTap();
-                  // TODO: Apple sign-in
-                },
+                onGoogle: () => _handleGoogleSignIn(),
+                onApple: isAppleSignInAvailable
+                    ? () => _handleAppleSignIn()
+                    : null,
               ),
 
               VaultedSpacing.gapXxl,
@@ -554,9 +608,9 @@ class _OrDivider extends StatelessWidget {
 
 class _SocialRow extends StatelessWidget {
   final VoidCallback onGoogle;
-  final VoidCallback onApple;
+  final VoidCallback? onApple;
 
-  const _SocialRow({required this.onGoogle, required this.onApple});
+  const _SocialRow({required this.onGoogle, this.onApple});
 
   @override
   Widget build(BuildContext context) {
@@ -578,23 +632,25 @@ class _SocialRow extends StatelessWidget {
             ),
           ),
         ),
-        VaultedSpacing.gapHMd,
-        Expanded(
-          child: SizedBox(
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: onApple,
-              icon: const Icon(Icons.apple_rounded, size: 24),
-              label: const Text('Apple'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: VaultedColors.textPrimary,
-                backgroundColor: VaultedColors.bgInput,
-                side: const BorderSide(color: VaultedColors.border),
-                shape: VaultedRadii.shapeButton,
+        if (onApple != null) ...[
+          VaultedSpacing.gapHMd,
+          Expanded(
+            child: SizedBox(
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: onApple,
+                icon: const Icon(Icons.apple_rounded, size: 24),
+                label: const Text('Apple'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: VaultedColors.textPrimary,
+                  backgroundColor: VaultedColors.bgInput,
+                  side: const BorderSide(color: VaultedColors.border),
+                  shape: VaultedRadii.shapeButton,
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }

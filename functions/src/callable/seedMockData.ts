@@ -78,6 +78,14 @@ function generateEmail(first: string, last: string): string {
  * - 30 days of stats history
  */
 export const seedMockData = functions.https.onCall(async (_data, context) => {
+  // ── Environment gate: block in production ────────────────────────
+  if (!process.env.FUNCTIONS_EMULATOR) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "seedMockData is only available in the emulator environment."
+    );
+  }
+
   // ── Auth gate ──────────────────────────────────────────────────
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -146,7 +154,7 @@ export const seedMockData = functions.https.onCall(async (_data, context) => {
     ) / 100;
 
     cardBatch.set(cardRef, {
-      retailerName: retailer,
+      retailer: retailer,
       category: RETAILER_CATEGORIES[retailer] ?? "other",
       originalBalance,
       balance,
@@ -191,7 +199,7 @@ export const seedMockData = functions.https.onCall(async (_data, context) => {
 
     txBatch.set(txRef, {
       cardId: card.cardId,
-      retailerName: card.retailer,
+      retailer: card.retailer,
       type: randomElement(transactionTypes),
       amount: Math.round((Math.random() * 100 + 1) * 100) / 100,
       status: randomElement(statuses),

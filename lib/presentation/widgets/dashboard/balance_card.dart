@@ -79,32 +79,58 @@ class _BalanceContent extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Geometric decorative bars on the right
+          Positioned(
+            right: -8,
+            top: 0,
+            bottom: 0,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 10,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: VaultedColors.accentGold.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Container(
+                  width: 10,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: VaultedColors.accentGold.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Container(
+                  width: 10,
+                  height: 35,
+                  decoration: BoxDecoration(
+                    color: VaultedColors.accentGold.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Total Balance',
-                style: VaultedTypography.secondary(VaultedTypography.bodyMedium),
-              ),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: VaultedColors.accentGoldDim,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: VaultedColors.accentGold,
-                  size: 16,
-                ),
-              ),
-            ],
+          Text(
+            'TOTAL MANAGED ASSETS',
+            style: VaultedTypography.labelSmall.copyWith(
+              color: VaultedColors.textSecondary,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          VaultedSpacing.gapMd,
+          VaultedSpacing.gapLg,
           ShaderMask(
             shaderCallback: (bounds) => LinearGradient(
               colors: [
@@ -132,23 +158,22 @@ class _BalanceContent extends StatelessWidget {
           VaultedSpacing.gapSm,
           Row(
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: VaultedColors.success,
-                  shape: BoxShape.circle,
-                ),
+              Icon(
+                Icons.credit_card,
+                color: VaultedColors.textSecondary,
+                size: 16,
               ),
               const SizedBox(width: 6),
               Text(
-                '$activeCount active card${activeCount == 1 ? '' : 's'}',
+                '$activeCount cards active',
                 style: VaultedTypography.bodyMedium.copyWith(
                   color: VaultedColors.textSecondary,
                 ),
               ),
             ],
           ),
+        ],
+      ),
         ],
       ),
     )

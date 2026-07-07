@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,6 +10,7 @@ import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/haptics.dart';
+import 'data_export_screen.dart';
 
 /// Account deletion screen with confirmation flow.
 ///
@@ -172,7 +173,11 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
             child: OutlinedButton.icon(
               onPressed: () {
                 Haptics.lightTap();
-                context.go('/profile/data-export');
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DataExportScreen(),
+                  ),
+                );
               },
               icon: const Icon(Icons.download_outlined, size: 18),
               label: const Text('Export Data First'),
@@ -308,8 +313,8 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
 
   // ── Deletion flow ────────────────────────────────────────────────
 
-  /// Calls the `deleteUserCascade` Cloud Function via HTTPS callable
-  /// protocol, then deletes the Firebase Auth account and signs out.
+  /// Calls the `deleteUserCascade` Cloud Function via Firebase callable SDK,
+  /// then signs out.
   Future<void> _performDeletion() async {
     Haptics.heavyTap();
     setState(() => _isDeleting = true);
@@ -321,41 +326,17 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
         return;
       }
 
-      // Get a fresh ID token for the callable request.
-      final idToken = await user.getIdToken();
-
-      // Call the Cloud Function via the HTTPS callable protocol.
-      // Cloud Functions callable endpoint format:
-      // https://<region>-<projectId>.cloudfunctions.net/<functionName>
-      final dio = Dio();
-      final response = await dio.post<Map<String, dynamic>>(
-        'https://us-central1-vaulted-app-c89d2.cloudfunctions.net/deleteUserCascade',
-        data: {'data': {}},
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $idToken',
-            'Content-Type': 'application/json',
-          },
-          validateStatus: (status) => status != null && status < 500,
-        ),
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'deleteUserCascade',
       );
+      await callable.call<dynamic>({});
 
-      if (response.statusCode != 200) {
-        _handleError('Deletion failed. Please try again.');
-        return;
-      }
-
-      // Delete the Firebase Auth account.
-      await user.delete();
-
-      // Sign out (belt-and-suspenders in case delete didn't auto-signout).
       await FirebaseAuth.instance.signOut();
 
       Haptics.success();
 
       if (mounted) {
-        // Navigate to welcome screen and clear the stack.
-        context.go('/');
+        context.go('/auth/welcome');
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
@@ -365,10 +346,8 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
       } else {
         _handleError('Authentication error: ${e.message ?? 'Unknown error'}');
       }
-    } on DioException catch (e) {
-      _handleError(
-        'Network error: ${e.message ?? 'Could not reach server'}',
-      );
+    } on FirebaseFunctionsException catch (e) {
+      _handleError(e.message ?? 'Deletion failed. Please try again.');
     } catch (e) {
       _handleError('Something went wrong. Please try again.');
     } finally {

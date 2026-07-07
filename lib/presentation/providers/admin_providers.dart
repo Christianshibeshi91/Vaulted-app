@@ -53,11 +53,21 @@ final adminStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     }
   }
 
+  // Count unresolved flagged alerts
+  final alertsSnap = await _firestore
+      .collection('admin')
+      .doc('alerts')
+      .collection('items')
+      .where('isResolved', isEqualTo: false)
+      .get();
+  final flaggedCount = alertsSnap.size;
+
   return {
     'totalUsers': totalUsers,
     'totalCards': totalCards,
     'totalValue': totalValue,
     'revenue': totalValue * 0.025, // estimated 2.5% fee
+    'flaggedCount': flaggedCount,
   };
 });
 

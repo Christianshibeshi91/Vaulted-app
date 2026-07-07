@@ -22,6 +22,10 @@ service cloud.firestore {
         || request.resource.data.role == resource.data.role;
     }
 
+    function ownerCreateRoleIsUser() {
+      return request.resource.data.role == 'user';
+    }
+
     // ─── Validation helpers ──────────────────────────────────
 
     function isString(field) {
@@ -64,6 +68,19 @@ service cloud.firestore {
         && d.status in ['active', 'depleted', 'expired', 'archived'];
     }
 
+    // Restricts which fields an admin can update on user documents.
+    function adminUpdateAllowed() {
+      let allowed = ['isSuspended', 'suspensionReason', 'plan', 'role', 'updatedAt'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    // Restricts card owner updates to safe fields.
+    // Balance updates are allowed from the client balance checker.
+    function ownerCardUpdateAllowed() {
+      let allowed = ['notes', 'status', 'balance', 'lastBalanceCheck', 'updatedAt'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
     // Validates transaction document fields.
     function validTransactionData() {
       let d = request.resource.data;
@@ -81,10 +98,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
 
-      allow create: if isOwner(userId) && validUserData();
+      allow create: if (isOwner(userId) && ownerCreateRoleIsUser() && validUserData())
+        || (isAdmin() && validUserData());
 
       allow update: if (isOwner(userId) && roleNotChanged() && validUserData())
-        || isAdmin();
+        || (isAdmin() && validUserData() && adminUpdateAllowed());
 
       allow delete: if isAdmin();
 
@@ -92,7 +110,8 @@ service cloud.firestore {
       match /cards/{cardId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create: if (isOwner(userId) && validCardData()) || isAdmin();
-        allow update: if (isOwner(userId) && validCardData()) || isAdmin();
+        allow update: if (isOwner(userId) && validCardData() && ownerCardUpdateAllowed())
+          || isAdmin();
         allow delete: if isOwner(userId) || isAdmin();
       }
 
@@ -114,7 +133,30 @@ service cloud.firestore {
       }
     }
 
+    // ─── Retailer configs (balance checker) ─────────────────────
+    // Read-only for authenticated clients; managed by admin/Cloud Functions.
+    match /retailer_configs/{retailerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─── Balance check analytics ──────────────────────────────
+    // Authenticated users can write events; only admin can read.
+    match /analytics/balance_checks/events/{eventId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.retailerId is string
+        && request.resource.data.success is bool;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // ─── Admin collection ──────────────────────────────────────
+
+    // Protect admin/config from client-side writes (only backend functions should modify)
+    match /admin/config {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
 
     match /admin/{document=**} {
       allow read, write: if isAdmin();

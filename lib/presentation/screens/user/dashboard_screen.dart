@@ -1,15 +1,17 @@
-import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/utils/haptics.dart';
+import '../../providers/auth_providers.dart';
 import '../../providers/card_providers.dart';
+import '../../providers/notification_providers.dart';
 import '../../widgets/cards/add_card_sheet.dart';
 import '../../widgets/dashboard/balance_card.dart';
 import '../../widgets/dashboard/cards_carousel.dart';
@@ -21,6 +23,22 @@ import '../../widgets/dashboard/recent_activity.dart';
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
+  static const _shareText =
+      'Check out Vaulted — the smart way to manage your gift cards! https://vaulted.app';
+
+  Future<void> _handleShare(BuildContext context) async {
+    if (kIsWeb) {
+      await Clipboard.setData(const ClipboardData(text: _shareText));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link copied to clipboard')),
+        );
+      }
+    } else {
+      await Share.share(_shareText, subject: 'Try Vaulted');
+    }
+  }
+
   String get _greeting {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
@@ -30,6 +48,10 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadCountProvider);
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final displayName = user?.displayName?.split(' ').first ?? 'there';
+
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
       body: RefreshIndicator(
@@ -39,7 +61,6 @@ class DashboardScreen extends ConsumerWidget {
           ref.invalidate(cardsProvider);
           ref.invalidate(recentTransactionsProvider);
           await Haptics.lightTap();
-          // Allow streams to re-emit.
           await Future<void>.delayed(const Duration(milliseconds: 500));
         },
         child: CustomScrollView(
@@ -47,36 +68,23 @@ class DashboardScreen extends ConsumerWidget {
             parent: BouncingScrollPhysics(),
           ),
           slivers: [
-            // ── Collapsing App Bar ──────────────────────────────
+            // ── Top Bar ──────────────────────────────────────────
             SliverAppBar(
-              expandedHeight: 100,
+              expandedHeight: 60,
               floating: false,
               pinned: true,
               backgroundColor: VaultedColors.bgPrimary,
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(
-                  left: VaultedSpacing.xl,
-                  bottom: VaultedSpacing.lg,
-                ),
-                title: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$_greeting,',
-                      style: VaultedTypography.bodyMedium.copyWith(
-                        fontSize: 11,
-                        color: VaultedColors.textSecondary,
-                      ),
-                    ),
-                    Text(
-                      'Your Vault',
-                      style: VaultedTypography.headlineMedium.copyWith(
-                        fontSize: 16,
-                        color: VaultedColors.accentGold,
-                      ),
-                    ),
-                  ],
+              leading: IconButton(
+                icon: const Icon(Icons.menu, size: 24),
+                onPressed: () {
+                  Haptics.lightTap();
+                  Scaffold.of(context).openDrawer();
+                },
+              ),
+              title: Text(
+                '$_greeting, $displayName',
+                style: VaultedTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               actions: [
@@ -97,19 +105,20 @@ class DashboardScreen extends ConsumerWidget {
                         },
                         tooltip: 'Notifications',
                       ),
-                      // Badge
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: VaultedColors.danger,
-                            shape: BoxShape.circle,
+                      // Badge — only show when there are unread notifications
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: VaultedColors.accentGold,
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -124,7 +133,7 @@ class DashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    VaultedSpacing.gapMd,
+                    VaultedSpacing.gapXl,
 
                     // Balance hero
                     const BalanceCard(),
@@ -139,14 +148,36 @@ class DashboardScreen extends ConsumerWidget {
                       onAddCard: () => AddCardSheet.show(context),
                       onCheckAll: () => Haptics.mediumTap(),
                       onActivity: () => context.go('/activity'),
-                      onShare: () => Haptics.lightTap(),
+                      onShare: () {
+                        Haptics.lightTap();
+                        _handleShare(context);
+                      },
                     ),
                     VaultedSpacing.gapXxl,
 
-                    // Section label
-                    Text(
-                      'Your Cards',
-                      style: VaultedTypography.headlineMedium,
+                    // My Cards section header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'My Cards',
+                          style: VaultedTypography.headlineMedium,
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Haptics.lightTap();
+                            context.go('/cards');
+                          },
+                          child: Text(
+                            'SEE ALL →',
+                            style: VaultedTypography.labelSmall.copyWith(
+                              color: VaultedColors.accentGold,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     VaultedSpacing.gapMd,
                   ],
@@ -164,16 +195,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
 
-            // ── Balance Trend Chart ──────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: VaultedSpacing.xl,
-                  vertical: VaultedSpacing.xxl,
-                ),
-                child: const _BalanceTrendChart(),
-              ),
-            ),
+            VaultedSpacing.gapXxl.toSliver,
 
             // ── Recent Activity ──────────────────────────────────
             const SliverToBoxAdapter(
@@ -191,95 +213,8 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// ── Balance trend line chart ─────────────────────────────────────
+// ── SizedBox to sliver extension ──────────────────────────────────
 
-class _BalanceTrendChart extends StatelessWidget {
-  const _BalanceTrendChart();
-
-  @override
-  Widget build(BuildContext context) {
-    // Sample data -- will be replaced by real data from provider.
-    final spots = [
-      const FlSpot(0, 320),
-      const FlSpot(1, 380),
-      const FlSpot(2, 360),
-      const FlSpot(3, 420),
-      const FlSpot(4, 400),
-      const FlSpot(5, 480),
-      const FlSpot(6, 460),
-    ];
-
-    return Container(
-      padding: VaultedSpacing.cardInner,
-      decoration: BoxDecoration(
-        color: VaultedColors.bgCard,
-        borderRadius: VaultedRadii.brCard,
-        border: Border.all(color: VaultedColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Balance Trend', style: VaultedTypography.headlineMedium),
-          VaultedSpacing.gapSm,
-          Text(
-            'Last 7 days',
-            style: VaultedTypography.secondary(VaultedTypography.bodyMedium),
-          ),
-          VaultedSpacing.gapLg,
-          SizedBox(
-            height: 160,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => VaultedColors.bgCard,
-                    tooltipRoundedRadius: VaultedRadii.badge,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        return LineTooltipItem(
-                          '\$${spot.y.toStringAsFixed(0)}',
-                          VaultedTypography.monoSmall.copyWith(
-                            color: VaultedColors.accentGold,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    curveSmoothness: 0.3,
-                    color: VaultedColors.accentGold,
-                    barWidth: 2,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          VaultedColors.accentGold.withValues(alpha: 0.15),
-                          VaultedColors.accentGold.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    )
-        .animate()
-        .fadeIn(duration: 500.ms, delay: 200.ms, curve: Curves.easeOut)
-        .slideY(
-            begin: 0.05, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOut);
-  }
+extension on SizedBox {
+  SliverToBoxAdapter get toSliver => SliverToBoxAdapter(child: this);
 }

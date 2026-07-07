@@ -24,7 +24,21 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
           .doc(user.uid)
           .get();
 
-      if (!doc.exists || doc.data() == null) return null;
+      if (!doc.exists || doc.data() == null) {
+        // Firestore doc missing — build from Firebase Auth data
+        return UserModel(
+          uid: user.uid,
+          email: user.email ?? '',
+          displayName: user.displayName,
+          avatarUrl: user.photoURL,
+        );
+      }
+
+      // Check if user is suspended — force sign out
+      if (doc.data()?['isSuspended'] == true) {
+        await FirebaseAuth.instance.signOut();
+        return null;
+      }
 
       return UserModel.fromJson({
         'uid': user.uid,

@@ -11,83 +11,82 @@ import '../../widgets/admin/admin_kpi_cards.dart';
 import '../../widgets/admin/admin_revenue_chart.dart';
 
 /// Main admin dashboard with KPIs, revenue chart, live feed, and alerts.
-class AdminDashboardScreen extends ConsumerWidget {
+class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminDashboardScreen> createState() =>
+      _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
+  bool _alertDismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
     final statsAsync = ref.watch(adminStatsProvider);
     final alertsAsync = ref.watch(adminAlertsProvider);
     final dailyAsync = ref.watch(dailyStatsProvider);
 
     return Scaffold(
       backgroundColor: VaultedColors.bgPrimary,
-      body: RefreshIndicator(
-        color: VaultedColors.accentGold,
-        backgroundColor: VaultedColors.bgCard,
-        onRefresh: () async {
-          ref.invalidate(adminStatsProvider);
-          ref.invalidate(dailyStatsProvider);
-        },
-        child: ListView(
-          padding: VaultedSpacing.screenH.copyWith(
-            top: VaultedSpacing.xl,
-            bottom: VaultedSpacing.section,
-          ),
-          children: [
-            // ── Alerts banner ────────────────────────────────────
+      body: Column(
+        children: [
+          // ── Alert banner (amber, dismissible) ─────────────
+          if (!_alertDismissed)
             alertsAsync.when(
               data: (alerts) {
-                final critical = alerts
-                    .where((a) => a.severity == 'critical' && !a.isResolved)
+                final flagged = alerts
+                    .where((a) =>
+                        a.severity == 'critical' && !a.isResolved)
                     .toList();
-                if (critical.isEmpty) return const SizedBox.shrink();
+                if (flagged.isEmpty) return const SizedBox.shrink();
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: VaultedSpacing.lg),
-                  child: Container(
-                    padding: VaultedSpacing.cardInner,
-                    decoration: BoxDecoration(
-                      color: VaultedColors.danger.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: VaultedColors.danger.withValues(alpha: 0.3),
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  color: VaultedColors.warning.withValues(alpha: 0.15),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: VaultedColors.warning,
+                        size: 20,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          color: VaultedColors.danger,
-                          size: 22,
-                        ),
-                        VaultedSpacing.gapHMd,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            text:
+                                '${flagged.length} flagged transactions require review  ',
+                            style: VaultedTypography.bodyMedium.copyWith(
+                              color: VaultedColors.textPrimary,
+                              fontSize: 13,
+                            ),
                             children: [
-                              Text(
-                                '${critical.length} Critical Alert${critical.length > 1 ? 's' : ''}',
-                                style: VaultedTypography.bodyLarge.copyWith(
-                                  color: VaultedColors.danger,
-                                  fontWeight: FontWeight.w600,
+                              TextSpan(
+                                text: 'Review',
+                                style: TextStyle(
+                                  color: VaultedColors.warning,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
-                              VaultedSpacing.gapXs,
-                              Text(
-                                critical.first.title,
-                                style: VaultedTypography.bodyMedium.copyWith(
-                                  color: VaultedColors.danger
-                                      .withValues(alpha: 0.8),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => _alertDismissed = true),
+                        child: Icon(
+                          Icons.close,
+                          color: VaultedColors.textSecondary,
+                          size: 18,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -95,85 +94,105 @@ class AdminDashboardScreen extends ConsumerWidget {
               error: (_, _) => const SizedBox.shrink(),
             ),
 
-            // ── KPI Grid ─────────────────────────────────────────
-            statsAsync.when(
-              data: (stats) => AdminKpiGrid(
-                cards: [
-                  AdminKpiCard(
-                    icon: Icons.people_outline,
-                    label: 'Total Users',
-                    value: '${stats['totalUsers'] ?? 0}',
-                    delta: '+12%',
-                    useGoldAccent: true,
-                  ),
-                  AdminKpiCard(
-                    icon: Icons.credit_card_outlined,
-                    label: 'Total Cards',
-                    value: '${stats['totalCards'] ?? 0}',
-                    delta: '+8%',
-                  ),
-                  AdminKpiCard(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: 'Total Value',
-                    value: Formatters.currencyCompact(
-                      (stats['totalValue'] as num?)?.toDouble() ?? 0,
+          // ── Scrollable body ───────────────────────────────
+          Expanded(
+            child: RefreshIndicator(
+              color: VaultedColors.accentGold,
+              backgroundColor: VaultedColors.bgCard,
+              onRefresh: () async {
+                ref.invalidate(adminStatsProvider);
+                ref.invalidate(dailyStatsProvider);
+              },
+              child: ListView(
+                padding: VaultedSpacing.screenH.copyWith(
+                  top: VaultedSpacing.xl,
+                  bottom: VaultedSpacing.section,
+                ),
+                children: [
+                  // ── KPI Grid ────────────────────────────────
+                  statsAsync.when(
+                    data: (stats) => AdminKpiGrid(
+                      cards: [
+                        AdminKpiCard(
+                          icon: Icons.people_outline,
+                          label: 'TOTAL USERS',
+                          value: Formatters.compactNumber(
+                            (stats['totalUsers'] as num?)?.toInt() ?? 0,
+                          ),
+                          delta: '+3.2%',
+                          useGoldAccent: true,
+                        ),
+                        AdminKpiCard(
+                          icon: Icons.credit_card_outlined,
+                          label: 'ACTIVE CARDS',
+                          value: Formatters.compactNumber(
+                            (stats['totalCards'] as num?)?.toInt() ?? 0,
+                          ),
+                          delta: '+5.8%',
+                        ),
+                        AdminKpiCard(
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'REVENUE',
+                          value: Formatters.currencyCompact(
+                            (stats['revenue'] as num?)?.toDouble() ?? 0,
+                          ),
+                          delta: '+12.1%',
+                          useGoldAccent: true,
+                        ),
+                        AdminKpiCard(
+                          icon: Icons.flag_outlined,
+                          label: 'FLAGGED TXNS',
+                          value: '${stats['flaggedCount'] ?? 0}',
+                          statusText: 'NEEDS ATTENTION',
+                          statusIcon: Icons.warning_amber_rounded,
+                          isPositiveDelta: false,
+                        ),
+                      ],
                     ),
-                    delta: '+15%',
-                    useGoldAccent: true,
-                  ),
-                  AdminKpiCard(
-                    icon: Icons.trending_up,
-                    label: 'Revenue',
-                    value: Formatters.currencyCompact(
-                      (stats['revenue'] as num?)?.toDouble() ?? 0,
+                    loading: () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40),
+                        child: CircularProgressIndicator(
+                          color: VaultedColors.accentGold,
+                          strokeWidth: 2,
+                        ),
+                      ),
                     ),
-                    delta: '+22%',
+                    error: (e, _) => _errorCard('Failed to load stats'),
                   ),
+
+                  VaultedSpacing.gapXl,
+
+                  // ── Revenue Chart ────────────────────────────
+                  dailyAsync.when(
+                    data: (days) {
+                      final revenues =
+                          days.map((d) => d.totalRevenue).toList();
+                      final labels = days
+                          .map((d) => d.date.length >= 5
+                              ? d.date.substring(5)
+                              : d.date)
+                          .toList();
+                      return AdminRevenueChart(
+                        dataPoints: revenues,
+                        labels: labels,
+                      );
+                    },
+                    loading: () => const AdminRevenueChart(
+                      dataPoints: [],
+                    ),
+                    error: (_, _) => _errorCard('Chart unavailable'),
+                  ),
+
+                  VaultedSpacing.gapXl,
+
+                  // ── Live Activity Feed ────────────────────────
+                  const AdminActivityFeed(),
                 ],
               ),
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(
-                    color: VaultedColors.accentGold,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              error: (e, _) => _errorCard('Failed to load stats'),
             ),
-
-            VaultedSpacing.gapXl,
-
-            // ── Revenue Chart ────────────────────────────────────
-            dailyAsync.when(
-              data: (days) {
-                final revenues =
-                    days.map((d) => d.totalRevenue).toList();
-                final labels = days
-                    .map((d) => d.date.length >= 5
-                        ? d.date.substring(5) // MM-DD
-                        : d.date)
-                    .toList();
-                return AdminRevenueChart(
-                  dataPoints: revenues,
-                  labels: labels,
-                  title: 'REVENUE (30 DAYS)',
-                );
-              },
-              loading: () => const AdminRevenueChart(
-                dataPoints: [],
-                title: 'REVENUE (30 DAYS)',
-              ),
-              error: (_, _) => _errorCard('Chart unavailable'),
-            ),
-
-            VaultedSpacing.gapXl,
-
-            // ── Live Feed ────────────────────────────────────────
-            const AdminActivityFeed(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

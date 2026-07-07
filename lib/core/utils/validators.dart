@@ -33,6 +33,15 @@ abstract final class Validators {
     return null;
   }
 
+  /// Lightweight password validator for sign-in flows.
+  ///
+  /// Existing users may have legacy passwords that do not meet the
+  /// current registration policy, so login should only require a value.
+  static String? loginPassword(String? value) {
+    if (value == null || value.isEmpty) return 'Password is required';
+    return null;
+  }
+
   /// Checks password confirmation matches.
   static String? confirmPassword(String? value, String original) {
     if (value == null || value.isEmpty) return 'Confirm your password';

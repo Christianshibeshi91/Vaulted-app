@@ -28,11 +28,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   final _minFee = TextEditingController();
   final _maxFee = TextEditingController();
 
-  // ── Card issuing controllers ───────────────────────────────────
-  final _cardNetwork = TextEditingController();
-  final _dailyCardLimit = TextEditingController();
-  final _monthlyCardLimit = TextEditingController();
-
   // ── Fraud controllers ──────────────────────────────────────────
   final _autoFlagThreshold = TextEditingController();
   final _velocityLimit = TextEditingController();
@@ -43,7 +38,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   final _maintenanceMessage = TextEditingController();
 
   // ── Toggle states ──────────────────────────────────────────────
-  bool _cardIssuingEnabled = true;
   bool _notifyFlagged = true;
   bool _notifyRevenue = true;
   bool _notifySignups = true;
@@ -59,9 +53,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
     _premiumFee.dispose();
     _minFee.dispose();
     _maxFee.dispose();
-    _cardNetwork.dispose();
-    _dailyCardLimit.dispose();
-    _monthlyCardLimit.dispose();
     _autoFlagThreshold.dispose();
     _velocityLimit.dispose();
     _newUserDelay.dispose();
@@ -78,10 +69,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
     _premiumFee.text = s.premiumFeePercent.toString();
     _minFee.text = s.minFeeAmount.toString();
     _maxFee.text = s.maxFeeAmount.toString();
-    _cardIssuingEnabled = s.cardIssuingEnabled;
-    _cardNetwork.text = s.cardNetwork;
-    _dailyCardLimit.text = s.dailyCardLimit.toString();
-    _monthlyCardLimit.text = s.monthlyCardLimit.toString();
     _autoFlagThreshold.text = s.autoFlagThreshold.toString();
     _velocityLimit.text = s.velocityLimit.toString();
     _newUserDelay.text = s.newUserDelayHours.toString();
@@ -138,38 +125,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                   SettingsTextField(
                     label: 'Max Amount',
                     controller: _maxFee,
-                    keyboardType: TextInputType.number,
-                    suffix: '\$',
-                  ),
-                ],
-              ),
-
-              VaultedSpacing.gapMd,
-
-              // ── Card Issuing ────────────────────────────────
-              AdminSettingsSection(
-                title: 'Card Issuing',
-                icon: Icons.credit_card_outlined,
-                children: [
-                  SettingsSwitch(
-                    label: 'Card Issuing Enabled',
-                    value: _cardIssuingEnabled,
-                    onChanged: (val) =>
-                        setState(() => _cardIssuingEnabled = val),
-                  ),
-                  SettingsTextField(
-                    label: 'Network',
-                    controller: _cardNetwork,
-                  ),
-                  SettingsTextField(
-                    label: 'Daily Limit',
-                    controller: _dailyCardLimit,
-                    keyboardType: TextInputType.number,
-                    suffix: '\$',
-                  ),
-                  SettingsTextField(
-                    label: 'Monthly Limit',
-                    controller: _monthlyCardLimit,
                     keyboardType: TextInputType.number,
                     suffix: '\$',
                   ),
@@ -311,10 +266,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
         premiumFeePercent: double.tryParse(_premiumFee.text) ?? 1.5,
         minFeeAmount: double.tryParse(_minFee.text) ?? 1.0,
         maxFeeAmount: double.tryParse(_maxFee.text) ?? 50.0,
-        cardIssuingEnabled: _cardIssuingEnabled,
-        cardNetwork: _cardNetwork.text,
-        dailyCardLimit: double.tryParse(_dailyCardLimit.text) ?? 500,
-        monthlyCardLimit: double.tryParse(_monthlyCardLimit.text) ?? 5000,
         autoFlagThreshold:
             double.tryParse(_autoFlagThreshold.text) ?? 1000,
         velocityLimit: int.tryParse(_velocityLimit.text) ?? 5,

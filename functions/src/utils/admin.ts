@@ -8,6 +8,7 @@ if (!admin.apps.length) {
 export const db = admin.firestore();
 export const auth = admin.auth();
 export const messaging = admin.messaging();
+export const storage = admin.storage();
 
 // ─── Admin helpers ───────────────────────────────────────────────
 
@@ -28,7 +29,27 @@ export async function getAdminUsers(): Promise<string[]> {
   const snap = await db.doc("admin/config").get();
   if (!snap.exists) return [];
   const data = snap.data();
-  return (data?.adminUids as string[]) ?? [];
+  const adminUids = data?.adminUids;
+  if (!Array.isArray(adminUids)) return [];
+  return adminUids.filter((uid): uid is string => typeof uid === "string");
+}
+
+/**
+ * Return the first valid push token for a user document.
+ *
+ * Supports both the legacy `fcmToken` field and the app's `pushToken` field.
+ */
+export function getPushToken(data: Record<string, unknown> | undefined): string | null {
+  if (!data) return null;
+
+  const candidates = [data.fcmToken, data.pushToken];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 // ─── Audit log writer ────────────────────────────────────────────

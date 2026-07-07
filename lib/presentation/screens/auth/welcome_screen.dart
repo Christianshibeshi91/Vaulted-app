@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -7,11 +8,62 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/theme/radii.dart';
+import '../../../core/utils/apple_sign_in_helper.dart';
+import '../../../core/utils/google_sign_in_helper.dart';
 import '../../../core/utils/haptics.dart';
 
 /// Landing screen with Sign In / Create Account / Social options.
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  Future<void> _handleGoogleSignIn() async {
+    Haptics.mediumTap();
+    try {
+      await signInWithGoogle();
+      if (mounted) Haptics.success();
+    } on FirebaseAuthException catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
+        );
+      }
+    } catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    Haptics.mediumTap();
+    try {
+      await signInWithApple();
+      if (mounted) Haptics.success();
+    } on FirebaseAuthException catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
+        );
+      }
+    } catch (_) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,10 +232,7 @@ class WelcomeScreen extends StatelessWidget {
                   _SocialButton(
                     label: 'Continue with Google',
                     icon: Icons.g_mobiledata_rounded,
-                    onTap: () {
-                      Haptics.mediumTap();
-                      // TODO: Google sign-in
-                    },
+                    onTap: _handleGoogleSignIn,
                   ).animate().fadeIn(delay: 900.ms, duration: 500.ms).slideY(
                         begin: 0.08,
                         end: 0,
@@ -192,22 +241,20 @@ class WelcomeScreen extends StatelessWidget {
                         curve: Curves.easeOut,
                       ),
 
-                  VaultedSpacing.gapMd,
-
-                  _SocialButton(
-                    label: 'Continue with Apple',
-                    icon: Icons.apple_rounded,
-                    onTap: () {
-                      Haptics.mediumTap();
-                      // TODO: Apple sign-in
-                    },
-                  ).animate().fadeIn(delay: 1000.ms, duration: 500.ms).slideY(
-                        begin: 0.08,
-                        end: 0,
-                        delay: 1000.ms,
-                        duration: 500.ms,
-                        curve: Curves.easeOut,
-                      ),
+                  if (isAppleSignInAvailable) ...[
+                    VaultedSpacing.gapMd,
+                    _SocialButton(
+                      label: 'Continue with Apple',
+                      icon: Icons.apple_rounded,
+                      onTap: _handleAppleSignIn,
+                    ).animate().fadeIn(delay: 1000.ms, duration: 500.ms).slideY(
+                          begin: 0.08,
+                          end: 0,
+                          delay: 1000.ms,
+                          duration: 500.ms,
+                          curve: Curves.easeOut,
+                        ),
+                  ],
 
                   const Spacer(),
 

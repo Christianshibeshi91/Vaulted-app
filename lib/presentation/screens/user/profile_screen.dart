@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../core/theme/colors.dart';
@@ -198,22 +200,14 @@ class ProfileScreen extends ConsumerWidget {
                 trailing: _StatusIndicator(
                   enabled: user.mfaEnabled,
                 ),
-                onTap: () => context.go('/profile/security'),
+                onTap: () => context.go('/profile/two-factor'),
               ),
               _SettingsTile(
                 icon: Icons.fingerprint_rounded,
                 title: 'Biometric Unlock',
                 trailing: Switch(
                   value: user.biometricEnabled,
-                  onChanged: (value) async {
-                    Haptics.toggle();
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
-                    if (uid == null) return;
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(uid)
-                        .update({'biometricEnabled': value});
-                  },
+                  onChanged: (value) => _toggleBiometric(context, value),
                 ),
                 onTap: null,
               ),
@@ -224,7 +218,7 @@ class ProfileScreen extends ConsumerWidget {
                   _autoLockLabel(user.autoLockMinutes),
                   style: VaultedTypography.bodyMedium,
                 ),
-                onTap: () => context.go('/profile/security'),
+                onTap: () => context.go('/profile/auto-lock'),
               ),
               _SettingsTile(
                 icon: Icons.devices_rounded,
@@ -339,6 +333,71 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _toggleBiometric(BuildContext context, bool enable) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    // Web doesn't support biometrics
+    if (kIsWeb) {
+      Haptics.warning();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Biometric unlock is not available on web'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (enable) {
+      // Verify device supports biometrics before enabling
+      final localAuth = LocalAuthentication();
+      final canCheck = await localAuth.canCheckBiometrics;
+      final isSupported = await localAuth.isDeviceSupported();
+
+      if (!canCheck || !isSupported) {
+        Haptics.warning();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Biometrics not available on this device'),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Require successful biometric auth to enable
+      try {
+        final didAuth = await localAuth.authenticate(
+          localizedReason: 'Verify your identity to enable biometric unlock',
+          options: const AuthenticationOptions(stickyAuth: true),
+        );
+        if (!didAuth) return;
+      } catch (_) {
+        Haptics.error();
+        return;
+      }
+    }
+
+    Haptics.toggle();
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .update({'biometricEnabled': enable});
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enable ? 'Biometric unlock enabled' : 'Biometric unlock disabled',
+          ),
+        ),
+      );
+    }
+  }
+
   String _initials(String? name, String email) {
     if (name != null && name.trim().isNotEmpty) {
       final parts = name.trim().split(' ');
@@ -446,18 +505,65 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               VaultedSpacing.gapXxl,
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (formKey.currentState?.validate() ?? false) {
-                      Haptics.success();
-                      Navigator.pop(ctx);
-                      // Perform password change via Firebase
-                    }
-                  },
-                  child: const Text('Update Password'),
-                ),
+              StatefulBuilder(
+                builder: (ctx2, setButtonState) {
+                  bool isUpdating = false;
+                  return SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isUpdating
+                          ? null
+                          : () async {
+                              if (!(formKey.currentState?.validate() ?? false)) {
+                                return;
+                              }
+                              setButtonState(() => isUpdating = true);
+                              try {
+                                final user = FirebaseAuth.instance.currentUser!;
+                                final cred = EmailAuthProvider.credential(
+                                  email: user.email!,
+                                  password: currentCtrl.text,
+                                );
+                                await user.reauthenticateWithCredential(cred);
+                                await user.updatePassword(newCtrl.text);
+                                Haptics.success();
+                                if (ctx.mounted) {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Password updated successfully'),
+                                    ),
+                                  );
+                                }
+                              } on FirebaseAuthException catch (e) {
+                                Haptics.error();
+                                if (ctx.mounted) {
+                                  final msg = e.code == 'wrong-password'
+                                      ? 'Current password is incorrect'
+                                      : 'Failed to update password: ${e.message}';
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(content: Text(msg)),
+                                  );
+                                }
+                              } finally {
+                                if (ctx.mounted) {
+                                  setButtonState(() => isUpdating = false);
+                                }
+                              }
+                            },
+                      child: isUpdating
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: VaultedColors.bgPrimary,
+                              ),
+                            )
+                          : const Text('Update Password'),
+                    ),
+                  );
+                },
               ),
             ],
           ),

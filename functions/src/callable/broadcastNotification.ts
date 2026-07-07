@@ -1,23 +1,27 @@
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { db, messaging, isAdmin, writeAuditLog } from "../utils/admin";
+import * as functions from "firebase-functions";
+import { db, getPushToken, messaging, isAdmin, writeAuditLog } from "../utils/admin";
 
 interface BroadcastData {
-  title: string;
-  body: string;
+  title?: string;
+  body?: string;
   type?: string;
   data?: Record<string, string>;
 }
+
+const MAX_TITLE_LENGTH = 120;
+const MAX_BODY_LENGTH = 500;
+const MAX_DATA_ENTRIES = 20;
+const MAX_DATA_VALUE_LENGTH = 256;
 
 /**
  * Admin-only callable: broadcast a notification to every user.
  *
  * 1. Write to each user's /notifications subcollection.
- * 2. Send FCM push to every user with a stored FCM token.
+ * 2. Send FCM push to every user with a stored push token.
  */
 export const broadcastNotification = functions.https.onCall(
   async (data: BroadcastData, context) => {
-    // ── Auth gate ────────────────────────────────────────────────
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
@@ -33,25 +37,33 @@ export const broadcastNotification = functions.https.onCall(
       );
     }
 
-    // ── Validate input ───────────────────────────────────────────
-    if (!data.title || typeof data.title !== "string") {
+    const title = data?.title?.trim();
+    const body = data?.body?.trim();
+
+    if (!title) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "title is required and must be a string."
       );
     }
-    if (!data.body || typeof data.body !== "string") {
+    if (!body) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "body is required and must be a string."
       );
     }
+    if (title.length > MAX_TITLE_LENGTH || body.length > MAX_BODY_LENGTH) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Notification title/body exceed the maximum length."
+      );
+    }
 
-    const notificationType = data.type ?? "system_broadcast";
+    const payloadData = sanitizeDataPayload(data?.data);
+    const notificationType = data?.type?.trim() || "system_broadcast";
 
-    // ── Write to all users ───────────────────────────────────────
     const usersSnap = await db.collection("users").get();
-    const fcmTokens: string[] = [];
+    const tokenSet = new Set<string>();
     let written = 0;
 
     let batch = db.batch();
@@ -61,18 +73,17 @@ export const broadcastNotification = functions.https.onCall(
       const ref = db.collection(`users/${userDoc.id}/notifications`).doc();
       batch.set(ref, {
         type: notificationType,
-        title: data.title,
-        body: data.body,
+        title,
+        body,
         isRead: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       written++;
       batchCount++;
 
-      // Collect FCM tokens
-      const userData = userDoc.data();
-      if (userData.fcmToken && typeof userData.fcmToken === "string") {
-        fcmTokens.push(userData.fcmToken);
+      const pushToken = getPushToken(userDoc.data());
+      if (pushToken) {
+        tokenSet.add(pushToken);
       }
 
       if (batchCount >= 450) {
@@ -82,44 +93,35 @@ export const broadcastNotification = functions.https.onCall(
       }
     }
 
-    if (batchCount > 0) await batch.commit();
+    if (batchCount > 0) {
+      await batch.commit();
+    }
 
-    // ── Send FCM push ────────────────────────────────────────────
+    const tokens = Array.from(tokenSet);
     let fcmSuccess = 0;
     let fcmFailed = 0;
 
-    if (fcmTokens.length > 0) {
-      // FCM multicast supports up to 500 tokens per call
-      const chunks: string[][] = [];
-      for (let i = 0; i < fcmTokens.length; i += 500) {
-        chunks.push(fcmTokens.slice(i, i + 500));
-      }
-
-      for (const chunk of chunks) {
-        try {
-          const result = await messaging.sendEachForMulticast({
-            tokens: chunk,
-            notification: {
-              title: data.title,
-              body: data.body,
-            },
-            data: data.data ?? {},
-          });
-          fcmSuccess += result.successCount;
-          fcmFailed += result.failureCount;
-        } catch (err) {
-          functions.logger.error("FCM multicast failed", { error: err });
-          fcmFailed += chunk.length;
-        }
+    for (let i = 0; i < tokens.length; i += 500) {
+      const chunk = tokens.slice(i, i + 500);
+      try {
+        const result = await messaging.sendEachForMulticast({
+          tokens: chunk,
+          notification: { title, body },
+          data: payloadData,
+        });
+        fcmSuccess += result.successCount;
+        fcmFailed += result.failureCount;
+      } catch (err) {
+        functions.logger.error("FCM multicast failed", { error: err });
+        fcmFailed += chunk.length;
       }
     }
 
-    // ── Audit log ────────────────────────────────────────────────
     await writeAuditLog({
       action: "BROADCAST_NOTIFICATION",
       performedBy: callerUid,
       details: {
-        title: data.title,
+        title,
         recipientCount: written,
         fcmSuccess,
         fcmFailed,
@@ -135,3 +137,42 @@ export const broadcastNotification = functions.https.onCall(
     return { success: true, written, fcmSuccess, fcmFailed };
   }
 );
+
+function sanitizeDataPayload(
+  payload: Record<string, string> | undefined
+): Record<string, string> {
+  if (payload == null) return {};
+  if (typeof payload !== "object" || Array.isArray(payload)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "data must be an object of string key-value pairs."
+    );
+  }
+
+  const entries = Object.entries(payload);
+  if (entries.length > MAX_DATA_ENTRIES) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "data contains too many entries."
+    );
+  }
+
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of entries) {
+    if (typeof key !== "string" || key.trim().length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "data keys must be non-empty strings."
+      );
+    }
+    if (typeof value !== "string" || value.length > MAX_DATA_VALUE_LENGTH) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "data values must be strings within the allowed length."
+      );
+    }
+    sanitized[key.trim()] = value;
+  }
+
+  return sanitized;
+}

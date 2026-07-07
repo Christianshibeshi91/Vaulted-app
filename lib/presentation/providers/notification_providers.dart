@@ -23,9 +23,15 @@ final notificationsStreamProvider =
 });
 
 /// Count of unread notifications derived from the stream.
+///
+/// Returns 0 when loading, errored, or when there are no unread items.
 final unreadCountProvider = Provider<int>((ref) {
   final notifications = ref.watch(notificationsStreamProvider);
-  return notifications.valueOrNull?.where((n) => !n.read).length ?? 0;
+  return notifications.when(
+    data: (list) => list.where((n) => !n.read).length,
+    loading: () => 0,
+    error: (_, _) => 0,
+  );
 });
 
 /// Marks a single notification as read.
@@ -42,23 +48,29 @@ Future<void> markNotificationRead(String notificationId) async {
 }
 
 /// Marks all notifications as read for the current user.
+///
+/// Processes in batches of 450 to stay under Firestore's 500-write limit.
 Future<void> markAllNotificationsRead() async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return;
 
-  final batch = FirebaseFirestore.instance.batch();
-  final unread = await FirebaseFirestore.instance
+  final collRef = FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
       .collection('notifications')
-      .where('read', isEqualTo: false)
-      .get();
+      .where('read', isEqualTo: false);
 
-  for (final doc in unread.docs) {
-    batch.update(doc.reference, {'read': true});
-  }
+  QuerySnapshot unread;
+  do {
+    unread = await collRef.limit(450).get();
+    if (unread.docs.isEmpty) break;
 
-  await batch.commit();
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
+  } while (unread.docs.length == 450);
 }
 
 /// Deletes a single notification.

@@ -1,3 +1,5 @@
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -26,6 +28,8 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
 
   bool _isLoading = false;
   bool _showRecovery = false;
+  String? _verificationId;
+  MultiFactorResolver? _resolver;
   final _recoveryController = TextEditingController();
 
   @override
@@ -83,14 +87,53 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Verify MFA code with Firebase
-      await Future<void>.delayed(const Duration(seconds: 2));
+      // Verify MFA code with Firebase Multi-Factor Authentication
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-user',
+          message: 'No authenticated user found.',
+        );
+      }
+
+      if (_resolver != null) {
+        // Resolve MFA challenge from sign-in flow
+        final assertion = PhoneMultiFactorGenerator.getAssertion(
+          PhoneAuthProvider.credential(
+            verificationId: _verificationId ?? '',
+            smsCode: code,
+          ),
+        );
+        await _resolver!.resolveSignIn(assertion);
+      } else {
+        // Verify TOTP code via Firebase
+        final session = await user.multiFactor.getSession();
+        final assertion = await TotpMultiFactorGenerator.getAssertionForSignIn(
+          session.id,
+          code,
+        );
+        await user.multiFactor.enroll(assertion);
+      }
 
       Haptics.success();
       // Navigation handled by auth state redirect
+    } on FirebaseAuthException catch (e) {
+      Haptics.error();
+      for (final c in _controllers) {
+        c.clear();
+      }
+      _focusNodes[0].requestFocus();
+
+      if (mounted) {
+        final message = e.code == 'invalid-verification-code'
+            ? 'Invalid code. Please try again.'
+            : 'Verification failed: ${e.message}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
     } catch (e) {
       Haptics.error();
-      // Clear all fields on failure
       for (final c in _controllers) {
         c.clear();
       }
@@ -98,7 +141,7 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid code. Please try again.')),
+          const SnackBar(content: Text('Verification failed. Please try again.')),
         );
       }
     } finally {
@@ -117,9 +160,35 @@ class _MfaChallengeScreenState extends State<MfaChallengeScreen> {
     Haptics.mediumTap();
 
     try {
-      // TODO: Verify recovery code
-      await Future<void>.delayed(const Duration(seconds: 2));
+      // Verify recovery code via Firebase Auth
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-user',
+          message: 'No authenticated user found.',
+        );
+      }
+
+      // Recovery codes are typically handled server-side.
+      // Use a Cloud Function to validate and consume the recovery code.
+      final functions = FirebaseFunctions.instance;
+      final result = await functions.httpsCallable('verifyRecoveryCode').call({
+        'code': code,
+      });
+
+      if (result.data['success'] != true) {
+        throw Exception('Invalid recovery code');
+      }
+
       Haptics.success();
+      // Navigation handled by auth state redirect
+    } on FirebaseFunctionsException catch (e) {
+      Haptics.error();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Invalid recovery code.')),
+        );
+      }
     } catch (e) {
       Haptics.error();
       if (mounted) {

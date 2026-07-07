@@ -89,8 +89,9 @@ class _TransactionTile extends StatelessWidget {
       };
 
   Color get _amountColor {
-    if (tx.type == TransactionType.refund) return VaultedColors.success;
-    if (tx.amount < 0) return VaultedColors.danger;
+    if (tx.type == TransactionType.refund || tx.amount > 0) {
+      return VaultedColors.accentGold;
+    }
     return VaultedColors.textPrimary;
   }
 
@@ -113,11 +114,11 @@ class _TransactionTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: VaultedColors.accentGoldDim,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(_icon, color: VaultedColors.accentGold, size: 18),
           ),
@@ -127,7 +128,7 @@ class _TransactionTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tx.description ?? TransactionType.label(tx.type),
+                  tx.description ?? tx.retailer,
                   style: VaultedTypography.bodyLarge.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -136,7 +137,7 @@ class _TransactionTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${tx.retailer}  ${Formatters.relativeTime(tx.createdAt)}',
+                  Formatters.relativeTime(tx.createdAt),
                   style: VaultedTypography.labelSmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

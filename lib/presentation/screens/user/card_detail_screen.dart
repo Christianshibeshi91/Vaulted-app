@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/radii.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/utils/clipboard_manager.dart';
+import '../../../core/utils/encryption.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/haptics.dart';
 import '../../../core/utils/screenshot_prevention.dart';
+import '../../../core/utils/secure_storage.dart';
 import '../../../data/models/card_model.dart';
 import '../../../data/models/transaction_model.dart';
+import '../../../features/balance_checker/data/retailer_configs.dart';
+import '../../../features/balance_checker/presentation/screens/balance_check_screen.dart';
 import '../../providers/card_providers.dart';
 import '../../widgets/cards/card_visual.dart';
 
@@ -30,7 +34,34 @@ class CardDetailScreen extends ConsumerStatefulWidget {
 class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
     with ScreenshotPreventionMixin {
   bool _showCardNumber = false;
-  bool _showPin = false;
+  final bool _showPin = false;
+  String? _decryptedCardNumber;
+  String? _decryptedPin;
+  bool _decryptionFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _decryptFields();
+  }
+
+  Future<void> _decryptFields() async {
+    try {
+      final card = ref.read(cardByIdProvider(widget.cardId));
+      if (card == null) return;
+      final enc = EncryptionService(SecureStorageService.instance);
+      await enc.initialise();
+      if (card.cardNumberEncrypted != null) {
+        _decryptedCardNumber = enc.decrypt(card.cardNumberEncrypted!);
+      }
+      if (card.pinEncrypted != null) {
+        _decryptedPin = enc.decrypt(card.pinEncrypted!);
+      }
+    } catch (_) {
+      _decryptionFailed = true;
+    }
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +76,11 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.credit_card_off,
-                  color: VaultedColors.textMuted, size: 48),
+              const Icon(
+                Icons.credit_card_off,
+                color: VaultedColors.textMuted,
+                size: 48,
+              ),
               VaultedSpacing.gapMd,
               Text(
                 'Card not found',
@@ -67,12 +101,22 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
         slivers: [
           // ── App Bar ──────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 60,
             pinned: true,
             backgroundColor: VaultedColors.bgPrimary,
+            surfaceTintColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, size: 22),
+              onPressed: () => context.pop(),
+            ),
+            centerTitle: true,
             title: Text(
-              card.retailer,
-              style: VaultedTypography.headlineLarge,
+              'CARD DETAILS',
+              style: VaultedTypography.labelSmall.copyWith(
+                color: VaultedColors.textPrimary,
+                letterSpacing: 1.8,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
             actions: [
               PopupMenuButton<String>(
@@ -85,206 +129,154 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
                 onSelected: (action) => _handleAction(action, card),
                 itemBuilder: (_) => [
                   _menuItem('edit', Icons.edit_outlined, 'Edit Card'),
+                  _menuItem('archive', Icons.archive_outlined, 'Archive'),
                   _menuItem(
-                      'archive', Icons.archive_outlined, 'Archive'),
-                  _menuItem(
-                      'delete', Icons.delete_outline, 'Delete',
-                      isDanger: true),
+                    'delete',
+                    Icons.delete_outline,
+                    'Delete',
+                    isDanger: true,
+                  ),
                 ],
               ),
             ],
           ),
 
-          // ── Card Visual ──────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: VaultedSpacing.xl),
-              child: CardVisual(card: card, showFullNumber: _showCardNumber)
-                  .animate()
-                  .fadeIn(duration: 400.ms, curve: Curves.easeOut)
-                  .slideY(
-                    begin: 0.05,
-                    end: 0,
-                    duration: 400.ms,
-                    curve: Curves.easeOut,
-                  ),
-            ),
-          ),
-
-          // ── Balance Display ──────────────────────────────────
+          // ── Card Visual (full width) ─────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: VaultedSpacing.xl,
-                vertical: VaultedSpacing.xxl,
               ),
-              child: Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'Current Balance',
-                      style: VaultedTypography.secondary(
-                          VaultedTypography.bodyMedium),
-                    ),
-                    VaultedSpacing.gapXs,
-                    Text(
-                      Formatters.currency(card.balance),
-                      style: VaultedTypography.displayLarge.copyWith(
-                        color: VaultedColors.accentGold,
-                        fontSize: 36,
+              child:
+                  CardVisual(
+                        card: _decryptedCardNumber != null
+                            ? card.copyWith(
+                                cardNumberEncrypted: _showCardNumber
+                                    ? _decryptedCardNumber
+                                    : card.cardNumberEncrypted,
+                              )
+                            : card,
+                        showFullNumber: _showCardNumber,
+                        onToggleNumber: _decryptedCardNumber != null
+                            ? () {
+                                Haptics.lightTap();
+                                setState(
+                                  () => _showCardNumber = !_showCardNumber,
+                                );
+                              }
+                            : null,
+                      )
+                      .animate()
+                      .fadeIn(duration: 400.ms, curve: Curves.easeOut)
+                      .slideY(
+                        begin: 0.05,
+                        end: 0,
+                        duration: 400.ms,
+                        curve: Curves.easeOut,
                       ),
-                    ),
-                    if (card.originalBalance != card.balance) ...[
-                      VaultedSpacing.gapXs,
+            ),
+          ),
+
+          // ── Balance Section ──────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                VaultedSpacing.xl,
+                VaultedSpacing.xxl,
+                VaultedSpacing.xl,
+                VaultedSpacing.lg,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        'of ${Formatters.currency(card.originalBalance)} original',
-                        style: VaultedTypography.labelSmall,
+                        'BALANCE',
+                        style: VaultedTypography.labelMicro.copyWith(
+                          letterSpacing: 1.5,
+                          color: VaultedColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        Formatters.currency(card.balance),
+                        style: VaultedTypography.displayLarge.copyWith(
+                          color: VaultedColors.accentGold,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'PRECISION VAULT v2.04',
+                      style: VaultedTypography.labelMicro.copyWith(
+                        color: VaultedColors.textMuted,
+                        letterSpacing: 0.8,
+                        fontSize: 8,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
 
-          // ── Info Section ─────────────────────────────────────
+          // ── Action Buttons Row ───────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: VaultedSpacing.xl),
-              child: Container(
-                padding: VaultedSpacing.cardInner,
-                decoration: BoxDecoration(
-                  color: VaultedColors.bgCard,
-                  borderRadius: VaultedRadii.brCard,
-                  border: Border.all(color: VaultedColors.border),
-                ),
-                child: Column(
-                  children: [
-                    // Card Number
-                    if (card.cardNumberEncrypted != null)
-                      _InfoRow(
-                        label: 'Card Number',
-                        value: _showCardNumber
-                            ? Formatters.groupCardDigits(
-                                card.cardNumberEncrypted!)
-                            : Formatters.maskCardNumber(
-                                card.cardNumberEncrypted!),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _ActionIcon(
-                              icon: _showCardNumber
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              onTap: () {
-                                Haptics.lightTap();
-                                setState(
-                                    () => _showCardNumber = !_showCardNumber);
-                              },
-                              tooltip: _showCardNumber ? 'Hide' : 'Reveal',
+                horizontal: VaultedSpacing.xl,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.refresh_rounded,
+                      label: 'REFRESH',
+                      onTap: () {
+                        Haptics.lightTap();
+                        final config = RetailerConfigs.byName(card.retailer);
+                        if (config != null) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<bool>(
+                              builder: (_) =>
+                                  BalanceCheckScreen(config: config),
                             ),
-                            const SizedBox(width: 4),
-                            _ActionIcon(
-                              icon: Icons.copy,
-                              onTap: () {
-                                VaultedClipboard.copyAndClear(
-                                  context,
-                                  card.cardNumberEncrypted!,
-                                  label: 'Card number',
-                                  timeout: const Duration(seconds: 30),
-                                );
-                              },
-                              tooltip: 'Copy',
-                            ),
-                          ],
-                        ),
-                        mono: true,
-                      ),
-
-                    // PIN
-                    if (card.pinEncrypted != null) ...[
-                      const Divider(color: VaultedColors.border),
-                      _InfoRow(
-                        label: 'PIN',
-                        value: _showPin ? card.pinEncrypted! : '****',
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _ActionIcon(
-                              icon: _showPin
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              onTap: () {
-                                Haptics.lightTap();
-                                setState(() => _showPin = !_showPin);
-                              },
-                              tooltip: _showPin ? 'Hide' : 'Reveal',
-                            ),
-                            const SizedBox(width: 4),
-                            _ActionIcon(
-                              icon: Icons.copy,
-                              onTap: () {
-                                VaultedClipboard.copyAndClear(
-                                  context,
-                                  card.pinEncrypted!,
-                                  label: 'PIN',
-                                  timeout: const Duration(seconds: 30),
-                                );
-                              },
-                              tooltip: 'Copy',
-                            ),
-                          ],
-                        ),
-                        mono: true,
-                      ),
-                    ],
-
-                    // Expiration
-                    if (card.expirationDate != null) ...[
-                      const Divider(color: VaultedColors.border),
-                      _InfoRow(
-                        label: 'Expires',
-                        value: Formatters.dateFull(card.expirationDate!),
-                      ),
-                    ],
-
-                    // Last Balance Check
-                    if (card.lastBalanceCheck != null) ...[
-                      const Divider(color: VaultedColors.border),
-                      _InfoRow(
-                        label: 'Last Checked',
-                        value: Formatters.relativeTime(
-                            card.lastBalanceCheck!),
-                      ),
-                    ],
-
-                    // Added date
-                    const Divider(color: VaultedColors.border),
-                    _InfoRow(
-                      label: 'Added',
-                      value: Formatters.dateFull(card.createdAt),
+                          );
+                        }
+                      },
                     ),
-
-                    // Notes
-                    if (card.notes != null &&
-                        card.notes!.isNotEmpty) ...[
-                      const Divider(color: VaultedColors.border),
-                      _InfoRow(
-                        label: 'Notes',
-                        value: card.notes!,
-                      ),
-                    ],
-                  ],
-                ),
-              )
-                  .animate()
-                  .fadeIn(
-                    duration: 400.ms,
-                    delay: 100.ms,
-                    curve: Curves.easeOut,
                   ),
+                  const SizedBox(width: VaultedSpacing.sm),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.share_outlined,
+                      label: 'SHARE',
+                      onTap: () {
+                        Haptics.lightTap();
+                        _shareCard(card);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: VaultedSpacing.sm),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.archive_outlined,
+                      label: 'ARCHIVE',
+                      onTap: () {
+                        Haptics.mediumTap();
+                        // TODO: Archive card
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -294,52 +286,76 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: VaultedSpacing.xl),
+                horizontal: VaultedSpacing.xl,
+              ),
               child: _BalanceHistoryChart(cardId: widget.cardId),
             ),
           ),
 
           VaultedSpacing.gapXxl.toSliver,
 
-          // ── Transaction History ───────────────────────────────
+          // ── Recent Transactions Header ────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: VaultedSpacing.xl),
-              child: Text(
-                'Transaction History',
-                style: VaultedTypography.headlineMedium,
+                horizontal: VaultedSpacing.xl,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Recent Transactions',
+                    style: VaultedTypography.headlineMedium,
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Haptics.lightTap();
+                      // TODO: Navigate to all transactions
+                    },
+                    child: Text(
+                      'VIEW ALL',
+                      style: VaultedTypography.labelSmall.copyWith(
+                        color: VaultedColors.accentGold,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
 
           VaultedSpacing.gapMd.toSliver,
 
+          // ── Transaction List ──────────────────────────────────
           txAsync.when(
             loading: () => SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: VaultedSpacing.xl),
+                  horizontal: VaultedSpacing.xl,
+                ),
                 child: Column(
                   children: List.generate(
                     3,
-                    (i) => Container(
-                      height: 60,
-                      margin: const EdgeInsets.only(
-                          bottom: VaultedSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: VaultedColors.bgCard,
-                        borderRadius: VaultedRadii.brCard,
-                        border:
-                            Border.all(color: VaultedColors.border),
-                      ),
-                    )
-                        .animate(onPlay: (c) => c.repeat())
-                        .shimmer(
-                          duration: 1200.ms,
-                          delay: (100 * i).ms,
-                          color: VaultedColors.shimmerHighlight,
-                        ),
+                    (i) =>
+                        Container(
+                              height: 68,
+                              margin: const EdgeInsets.only(
+                                bottom: VaultedSpacing.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                color: VaultedColors.bgCard,
+                                borderRadius: VaultedRadii.brCard,
+                                border: Border.all(color: VaultedColors.border),
+                              ),
+                            )
+                            .animate(onPlay: (c) => c.repeat())
+                            .shimmer(
+                              duration: 1200.ms,
+                              delay: (100 * i).ms,
+                              color: VaultedColors.shimmerHighlight,
+                            ),
                   ),
                 ),
               ),
@@ -347,7 +363,8 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
             error: (_, _) => SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: VaultedSpacing.xl),
+                  horizontal: VaultedSpacing.xl,
+                ),
                 child: Text(
                   'Could not load transactions',
                   style: VaultedTypography.bodyMedium.copyWith(
@@ -367,7 +384,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
                     child: Center(
                       child: Column(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.receipt_long_outlined,
                             color: VaultedColors.textMuted,
                             size: 32,
@@ -376,7 +393,8 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
                           Text(
                             'No transactions yet',
                             style: VaultedTypography.secondary(
-                                VaultedTypography.bodyMedium),
+                              VaultedTypography.bodyMedium,
+                            ),
                           ),
                         ],
                       ),
@@ -385,55 +403,21 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
                 );
               }
 
+              // Show max 5 recent transactions
+              final visible = transactions.take(5).toList();
               return SliverPadding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: VaultedSpacing.xl),
+                  horizontal: VaultedSpacing.xl,
+                ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (_, index) => _TransactionRow(
-                      tx: transactions[index],
-                      index: index,
-                    ),
-                    childCount: transactions.length,
+                    (_, index) =>
+                        _TransactionRow(tx: visible[index], index: index),
+                    childCount: visible.length,
                   ),
                 ),
               );
             },
-          ),
-
-          // ── Actions ──────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(VaultedSpacing.xl),
-              child: Column(
-                children: [
-                  VaultedSpacing.gapLg,
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Haptics.mediumTap();
-                        // TODO: Update balance flow
-                      },
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Update Balance'),
-                    ),
-                  ),
-                  VaultedSpacing.gapMd,
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Haptics.lightTap();
-                        // TODO: Edit card flow
-                      },
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Edit Card'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
 
           // Bottom padding
@@ -441,6 +425,17 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
         ],
       ),
     );
+  }
+
+  void _shareCard(CardModel card) {
+    final text = StringBuffer()
+      ..writeln('${card.retailer} Gift Card')
+      ..writeln('Balance: ${Formatters.currency(card.balance)}');
+    if (card.expirationDate != null) {
+      text.writeln('Expires: ${Formatters.monthYear(card.expirationDate!)}');
+    }
+    text.writeln('\nShared from Vaulted');
+    Share.share(text.toString(), subject: '${card.retailer} Gift Card');
   }
 
   void _handleAction(String action, CardModel card) {
@@ -464,19 +459,31 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Card?'),
+        backgroundColor: VaultedColors.bgSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: VaultedRadii.brCard,
+          side: const BorderSide(color: VaultedColors.border),
+        ),
+        title: Text('Delete Card?', style: VaultedTypography.headlineMedium),
         content: Text(
           'Permanently delete your ${card.retailer} card? '
           'This cannot be undone.',
+          style: VaultedTypography.bodyMedium,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: VaultedTypography.bodyLarge.copyWith(
+                color: VaultedColors.textSecondary,
+              ),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: VaultedColors.danger,
+              shape: VaultedRadii.shapeButton,
             ),
             onPressed: () {
               Haptics.heavyTap();
@@ -523,76 +530,47 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen>
   }
 }
 
-// ── Info row ─────────────────────────────────────────────────────
+// ── Action button ──────────────────────────────────────────────────
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Widget? trailing;
-  final bool mono;
-
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.trailing,
-    this.mono = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: VaultedSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: VaultedTypography.labelSmall,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: mono
-                  ? VaultedTypography.monoSmall
-                  : VaultedTypography.bodyLarge,
-            ),
-          ),
-          ?trailing,
-        ],
-      ),
-    );
-  }
-}
-
-// ── Action icon button ───────────────────────────────────────────
-
-class _ActionIcon extends StatelessWidget {
+class _ActionButton extends StatelessWidget {
   final IconData icon;
+  final String label;
   final VoidCallback onTap;
-  final String tooltip;
 
-  const _ActionIcon({
+  const _ActionButton({
     required this.icon,
+    required this.label,
     required this.onTap,
-    required this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(
-            icon,
-            size: 16,
-            color: VaultedColors.accentGold,
+        borderRadius: VaultedRadii.brButton,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: VaultedSpacing.md),
+          decoration: BoxDecoration(
+            color: VaultedColors.bgCard,
+            borderRadius: VaultedRadii.brButton,
+            border: Border.all(color: VaultedColors.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: VaultedColors.accentGold),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: VaultedTypography.labelMicro.copyWith(
+                  color: VaultedColors.accentGold,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -606,6 +584,8 @@ class _BalanceHistoryChart extends ConsumerWidget {
   final String cardId;
 
   const _BalanceHistoryChart({required this.cardId});
+
+  static const _monthLabels = ['JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -621,13 +601,10 @@ class _BalanceHistoryChart extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Balance History',
-            style: VaultedTypography.headlineMedium,
-          ),
+          Text('Balance History', style: VaultedTypography.headlineMedium),
           VaultedSpacing.gapLg,
           SizedBox(
-            height: 140,
+            height: 160,
             child: txAsync.when(
               loading: () => const Center(
                 child: CircularProgressIndicator(
@@ -639,7 +616,8 @@ class _BalanceHistoryChart extends ConsumerWidget {
                 child: Text(
                   'No data',
                   style: VaultedTypography.secondary(
-                      VaultedTypography.bodyMedium),
+                    VaultedTypography.bodyMedium,
+                  ),
                 ),
               ),
               data: (transactions) {
@@ -648,7 +626,8 @@ class _BalanceHistoryChart extends ConsumerWidget {
                     child: Text(
                       'No balance history',
                       style: VaultedTypography.secondary(
-                          VaultedTypography.bodyMedium),
+                        VaultedTypography.bodyMedium,
+                      ),
                     ),
                   );
                 }
@@ -656,16 +635,46 @@ class _BalanceHistoryChart extends ConsumerWidget {
                 final reversed = transactions.reversed.toList();
                 final spots = <FlSpot>[];
                 for (var i = 0; i < reversed.length; i++) {
-                  spots.add(FlSpot(
-                    i.toDouble(),
-                    reversed[i].balanceAfter,
-                  ));
+                  spots.add(FlSpot(i.toDouble(), reversed[i].balanceAfter));
                 }
 
                 return LineChart(
                   LineChartData(
                     gridData: const FlGridData(show: false),
-                    titlesData: const FlTitlesData(show: false),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      leftTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 24,
+                          interval: 1,
+                          getTitlesWidget: (value, _) {
+                            final idx = value.toInt();
+                            if (idx < 0 || idx >= _monthLabels.length) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                _monthLabels[idx],
+                                style: VaultedTypography.labelMicro.copyWith(
+                                  color: VaultedColors.textMuted,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                     borderData: FlBorderData(show: false),
                     lineTouchData: LineTouchData(
                       touchTooltipData: LineTouchTooltipData(
@@ -698,10 +707,8 @@ class _BalanceHistoryChart extends ConsumerWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              VaultedColors.accentGold
-                                  .withValues(alpha: 0.15),
-                              VaultedColors.accentGold
-                                  .withValues(alpha: 0.0),
+                              VaultedColors.accentGold.withValues(alpha: 0.2),
+                              VaultedColors.accentGold.withValues(alpha: 0.0),
                             ],
                           ),
                         ),
@@ -714,9 +721,7 @@ class _BalanceHistoryChart extends ConsumerWidget {
           ),
         ],
       ),
-    )
-        .animate()
-        .fadeIn(duration: 400.ms, delay: 150.ms, curve: Curves.easeOut);
+    ).animate().fadeIn(duration: 400.ms, delay: 150.ms, curve: Curves.easeOut);
   }
 }
 
@@ -729,78 +734,123 @@ class _TransactionRow extends StatelessWidget {
   const _TransactionRow({required this.tx, required this.index});
 
   IconData get _icon => switch (tx.type) {
-        TransactionType.purchase => Icons.shopping_bag_outlined,
-        TransactionType.refund => Icons.replay_rounded,
-        TransactionType.balanceCheck => Icons.account_balance_outlined,
-        TransactionType.adjustment => Icons.tune_rounded,
-        TransactionType.transfer => Icons.swap_horiz_rounded,
-        _ => Icons.receipt_long_outlined,
-      };
+    TransactionType.purchase => Icons.shopping_bag_outlined,
+    TransactionType.refund => Icons.replay_rounded,
+    TransactionType.balanceCheck => Icons.account_balance_outlined,
+    TransactionType.adjustment => Icons.tune_rounded,
+    TransactionType.transfer => Icons.swap_horiz_rounded,
+    _ => Icons.receipt_long_outlined,
+  };
+
+  Color get _iconBgColor => switch (tx.type) {
+    TransactionType.purchase => VaultedColors.accentGoldDim,
+    TransactionType.refund => VaultedColors.success.withValues(alpha: 0.12),
+    TransactionType.balanceCheck => VaultedColors.info.withValues(alpha: 0.12),
+    TransactionType.adjustment => VaultedColors.warning.withValues(alpha: 0.12),
+    TransactionType.transfer => VaultedColors.accentGoldDim,
+    _ => VaultedColors.accentGoldDim,
+  };
+
+  Color get _iconColor => switch (tx.type) {
+    TransactionType.purchase => VaultedColors.accentGold,
+    TransactionType.refund => VaultedColors.success,
+    TransactionType.balanceCheck => VaultedColors.info,
+    TransactionType.adjustment => VaultedColors.warning,
+    TransactionType.transfer => VaultedColors.accentGold,
+    _ => VaultedColors.accentGold,
+  };
 
   Color get _amountColor {
     if (tx.type == TransactionType.refund) return VaultedColors.success;
     if (tx.amount < 0) return VaultedColors.danger;
-    return VaultedColors.textPrimary;
+    return VaultedColors.accentGold;
+  }
+
+  String get _typeLabel {
+    if (tx.amount < 0) return 'DEBIT';
+    return 'CREDIT';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: VaultedSpacing.sm),
-      padding: const EdgeInsets.symmetric(
-        horizontal: VaultedSpacing.lg,
-        vertical: VaultedSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: VaultedColors.bgCard,
-        borderRadius: VaultedRadii.brCard,
-        border: Border.all(color: VaultedColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: VaultedColors.accentGoldDim,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(_icon, color: VaultedColors.accentGold, size: 16),
+          margin: const EdgeInsets.only(bottom: VaultedSpacing.sm),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VaultedSpacing.lg,
+            vertical: VaultedSpacing.md,
           ),
-          VaultedSpacing.gapHMd,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.description ?? TransactionType.label(tx.type),
-                  style: VaultedTypography.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w500,
+          decoration: BoxDecoration(
+            color: VaultedColors.bgCard,
+            borderRadius: VaultedRadii.brCard,
+            border: Border.all(color: VaultedColors.border),
+          ),
+          child: Row(
+            children: [
+              // Category icon in circle
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _iconBgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(_icon, color: _iconColor, size: 18),
+              ),
+              const SizedBox(width: VaultedSpacing.md),
+
+              // Merchant name + date/time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tx.merchant ??
+                          tx.description ??
+                          TransactionType.label(tx.type),
+                      style: VaultedTypography.bodyLarge.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: VaultedColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      Formatters.dateTime(tx.createdAt),
+                      style: VaultedTypography.labelSmall.copyWith(
+                        color: VaultedColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Amount + DEBIT/CREDIT label
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    Formatters.currencySigned(tx.amount),
+                    style: VaultedTypography.monoSmall.copyWith(
+                      color: _amountColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  Formatters.relativeTime(tx.createdAt),
-                  style: VaultedTypography.labelSmall,
-                ),
-              ],
-            ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _typeLabel,
+                    style: VaultedTypography.labelMicro.copyWith(
+                      color: VaultedColors.textMuted,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          Text(
-            Formatters.currencySigned(tx.amount),
-            style: VaultedTypography.monoSmall.copyWith(color: _amountColor),
-          ),
-        ],
-      ),
-    )
-        .animate()
-        .fadeIn(
-          duration: 200.ms,
-          delay: (40 * index).ms,
-          curve: Curves.easeOut,
         )
+        .animate()
+        .fadeIn(duration: 200.ms, delay: (40 * index).ms, curve: Curves.easeOut)
         .slideX(
           begin: 0.03,
           end: 0,

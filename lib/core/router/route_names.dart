@@ -29,6 +29,8 @@ abstract final class RoutePaths {
   static const profile = '/profile';
   static const profileEdit = 'edit';
   static const profileSecurity = 'security';
+  static const profileTwoFactor = 'two-factor';
+  static const profileAutoLock = 'auto-lock';
   static const profileSupport = 'support';
 
   // ── Admin ─────────────────────────────────────────────────────
@@ -73,6 +75,8 @@ abstract final class RouteNames {
   static const profile = 'profile';
   static const profileEdit = 'profile-edit';
   static const profileSecurity = 'profile-security';
+  static const profileTwoFactor = 'profile-two-factor';
+  static const profileAutoLock = 'profile-auto-lock';
   static const profileSupport = 'profile-support';
 
   // Admin
